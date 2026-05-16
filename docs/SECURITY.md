@@ -4,9 +4,13 @@ This release is designed for a single trusted admin.
 
 ## Access Model
 
-- Caddy basic auth protects the browser application.
+- Caddy Basic Auth protects the browser application and all API routes except health.
 - FastAPI business routes require `Authorization: Bearer <ADMIN_API_TOKEN>`.
-- Health endpoints remain public for orchestration.
+  **Caddy injects this header server-side** via `header_up Authorization "Bearer {$ADMIN_API_TOKEN}"`.
+  The frontend never reads, stores, or transmits `ADMIN_API_TOKEN`.
+  `NEXT_PUBLIC_ADMIN_API_TOKEN` must never appear in any environment file or build arg.
+- Health endpoints (`/api/health`, `/api/health/live`, `/api/health/ready`) remain public
+  for orchestration and are forwarded by Caddy without authentication.
 
 ## Sensitive Data
 

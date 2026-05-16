@@ -67,12 +67,10 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-        NEXT_PUBLIC_ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
     restart: unless-stopped
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
-      NEXT_PUBLIC_ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
     expose:
       - "3000"
     depends_on:
@@ -86,6 +84,7 @@ services:
       CADDY_ACME_EMAIL: ${CADDY_ACME_EMAIL}
       CADDY_BASIC_AUTH_USER: ${CADDY_BASIC_AUTH_USER}
       CADDY_BASIC_AUTH_HASH: ${CADDY_BASIC_AUTH_HASH}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
     ports:
       - "80:80"
       - "443:443"

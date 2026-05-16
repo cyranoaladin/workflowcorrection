@@ -3,15 +3,28 @@
 }
 
 {$APP_DOMAIN} {
-	basic_auth * {
-		{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
-	}
+	@public_health path /api/health /api/health/live /api/health/ready
 
-	handle_path /api/* {
+	handle @public_health {
+		uri strip_prefix /api
 		reverse_proxy backend:8000
 	}
 
+	handle_path /api/* {
+		basic_auth {
+			{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
+		}
+
+		reverse_proxy backend:8000 {
+			header_up Authorization "Bearer {$ADMIN_API_TOKEN}"
+		}
+	}
+
 	handle {
+		basic_auth {
+			{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
+		}
+
 		reverse_proxy frontend:3000
 	}
 }

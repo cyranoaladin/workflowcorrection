@@ -6,11 +6,14 @@
 - Copy `.env.production.example` to `.env`.
 - Replace every `replace_with_*` value.
 - Generate `ADMIN_API_TOKEN` with at least 32 random characters.
+  **This token is a backend + Caddy secret only. Never expose it to the browser.**
 - Generate the Caddy password hash:
   `docker run --rm caddy:2.8-alpine caddy hash-password --plaintext 'your-password'`
 - Keep `OCR_ENABLE_PAID_CALLS=false` until keys, quotas, and billing alerts are verified.
 - Set `CORS_ALLOWED_ORIGINS=https://<APP_DOMAIN>`.
-- Set `PUBLIC_API_BASE_URL` and `NEXT_PUBLIC_API_BASE_URL` to `https://<APP_DOMAIN>/api`.
+- Set `NEXT_PUBLIC_API_BASE_URL` to `https://<APP_DOMAIN>/api` (public, no secret).
+- **Do NOT set `NEXT_PUBLIC_ADMIN_API_TOKEN`** — the bearer token is injected by Caddy via
+  `header_up Authorization "Bearer {$ADMIN_API_TOKEN}"`. The frontend never sees it.
 
 ## Deploy
 

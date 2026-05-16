@@ -11,9 +11,7 @@ export function getApiBaseUrl(): string {
 }
 
 function getApiHeaders(extra?: HeadersInit): HeadersInit {
-  const token = process.env.NEXT_PUBLIC_ADMIN_API_TOKEN;
   return {
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(extra ?? {})
   };
 }

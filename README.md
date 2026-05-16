@@ -129,6 +129,9 @@ npm run dev
 
 `NEXT_PUBLIC_API_BASE_URL=http://46.224.150.0:8000`
 
+> **Sécurité** : Ne jamais ajouter `NEXT_PUBLIC_ADMIN_API_TOKEN` dans `.env.local` ni dans aucun fichier frontend.
+> En production le token admin est injecté côté serveur par Caddy (`header_up Authorization`).
+
 ## Tests API (upload + conversion)
 
 ### 1) Créer un examen
@@ -370,8 +373,10 @@ Sources possibles: `sources=azure&sources=mathpix&sources=openai_vision`
 ## Sécurité minimale
 
 - Les ports hôte PostgreSQL/Redis ne sont **pas exposés** (réseau Docker uniquement).
-- Le backend est exposé sur `8000` (prévu pour passer derrière Nginx/HTTPS ensuite).
+- En production, seul Caddy expose les ports `80` et `443`. Le backend n'est jamais exposé directement.
+- Caddy injecte le header `Authorization: Bearer {$ADMIN_API_TOKEN}` vers le backend — le navigateur ne voit jamais ce token.
 - Ne jamais committer `.env` (uniquement `.env.example`).
+- `NEXT_PUBLIC_ADMIN_API_TOKEN` est **supprimé** ; toute réintroduction est une faille de sécurité.
 
 ## Dépannage
 

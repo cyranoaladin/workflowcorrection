@@ -26,9 +26,14 @@
 
 ## Chunk 3: Frontend Auth
 
-- [ ] Add API helper support for `NEXT_PUBLIC_ADMIN_API_TOKEN`.
-- [ ] Ensure all frontend API calls include authorization when configured.
-- [ ] Keep build passing.
+> **SUPERSEDED by fix/production-final-hardening** — `NEXT_PUBLIC_ADMIN_API_TOKEN` has been
+> removed entirely. The `Authorization: Bearer` header is now injected **server-side by Caddy**
+> via `header_up`. The frontend never holds the token.
+
+- [x] Remove `NEXT_PUBLIC_ADMIN_API_TOKEN` from `frontend/lib/api.ts`, `frontend/Dockerfile`,
+      `frontend/.env.local.example`, `docker-compose.prod.yml`, and all documentation.
+- [x] Caddy injects `Authorization: Bearer {$ADMIN_API_TOKEN}` for all business API routes.
+- [x] Frontend build remains clean (no bearer token in bundle).
 
 ## Chunk 4: Deployment And Ops
 
