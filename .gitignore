@@ -1,0 +1,25 @@
+.env
+!.env.example
+.env.local
+.env.*.local
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+
+node_modules/
+.next/
+out/
+
+backend/.env
+frontend/.env.local
+
+# Runtime storage (keep folder structure via .gitkeep)
+storage/**
+!storage/**/
+!storage/**/.gitkeep
+
+*.log
