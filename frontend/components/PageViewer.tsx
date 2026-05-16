@@ -33,6 +33,7 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
   const pageIds = pages.map((p) => p.id).join(",");
   useEffect(() => {
     if (!base || pages.length === 0) return;
+    setBlobUrls({});
     const prev: Record<string, string> = {};
     let cancelled = false;
     Promise.all(

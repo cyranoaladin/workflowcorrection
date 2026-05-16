@@ -30,20 +30,28 @@ if [[ -n "$token" && -z "${APP_DOMAIN:-}" ]]; then
   auth_args=(-H "Authorization: Bearer $token")
 fi
 
-echo "[smoke-test] Health (public): $base/api/health"
-curl -fsS "$base/api/health" | sed 's/.*/[smoke-test] &/'
+# In production (APP_DOMAIN set) Caddy exposes the API under /api/*.
+# In local dev (direct backend) FastAPI serves routes at the root: /health, /exams …
+if [[ -n "${APP_DOMAIN:-}" ]]; then
+  api="$base/api"
+else
+  api="$base"
+fi
 
-echo "[smoke-test] Health ready (public): $base/api/health/ready"
-curl -fsS "$base/api/health/ready" | sed 's/.*/[smoke-test] &/'
+echo "[smoke-test] Health (public): $api/health"
+curl -fsS "$api/health" | sed 's/.*/[smoke-test] &/'
+
+echo "[smoke-test] Health ready (public): $api/health/ready"
+curl -fsS "$api/health/ready" | sed 's/.*/[smoke-test] &/'
 
 echo "[smoke-test] Create exam..."
-exam_json="$(curl -fsS -X POST "$base/api/exams" \
+exam_json="$(curl -fsS -X POST "$api/exams" \
   "${basic_args[@]}" "${auth_args[@]}" \
   -H 'Content-Type: application/json' \
   -d '{"title":"Demo Exam","level":"test","session":"2026"}')"
 echo "$exam_json"
 
 echo "[smoke-test] List exams..."
-curl -fsS "$base/api/exams" "${basic_args[@]}" "${auth_args[@]}" | head -c 500; echo
+curl -fsS "$api/exams" "${basic_args[@]}" "${auth_args[@]}" | head -c 500; echo
 
 echo "[smoke-test] OK (upload/process steps require PDF files)."
