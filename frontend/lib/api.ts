@@ -11,7 +11,16 @@ export function getApiBaseUrl(): string {
 }
 
 function getApiHeaders(extra?: HeadersInit): HeadersInit {
+  // NEXT_PUBLIC_DEV_ADMIN_TOKEN is a development-only escape hatch for calling
+  // the backend directly (without Caddy). It is intentionally ignored in
+  // production builds: Caddy injects Authorization server-side via header_up.
+  // Never set this variable in a production environment file.
+  const devToken =
+    process.env.NODE_ENV !== "production"
+      ? process.env.NEXT_PUBLIC_DEV_ADMIN_TOKEN
+      : undefined;
   return {
+    ...(devToken ? { Authorization: `Bearer ${devToken}` } : {}),
     ...(extra ?? {})
   };
 }
