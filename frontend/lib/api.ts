@@ -64,3 +64,15 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<T> {
   }
   return (await res.json()) as T;
 }
+
+export async function apiFetchBlob(path: string): Promise<Blob> {
+  const base = getApiBaseUrl();
+  if (!base) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
+  const url = `${base}${path}`;
+  const res = await fetch(url, { cache: "no-store", headers: getApiHeaders() });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw { status: res.status, message: `GET ${path} failed`, details: text } satisfies ApiError;
+  }
+  return res.blob();
+}

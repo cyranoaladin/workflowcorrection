@@ -45,7 +45,7 @@ export function ApiHealthBadge() {
 
   return (
     <span className={`rounded px-2 py-1 text-xs font-medium ${cls}`} title={baseUrl || "NEXT_PUBLIC_API_BASE_URL is not set"}>
-      API: {status} · {baseUrl || "(missing NEXT_PUBLIC_API_BASE_URL)"}
+      API: {status}
     </span>
   );
 }

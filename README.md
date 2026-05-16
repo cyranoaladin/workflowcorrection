@@ -97,7 +97,9 @@ OCR (Phase 2) — **par défaut les appels payants sont désactivés**:
 - `OCR_DEFAULT_IMAGE_TYPE=processed`
 - renseigner ensuite les clés `MATHPIX_*`, `AZURE_*`, `OPENAI_*` si besoin.
 
-### 4) Lancer la stack (backend + worker + DB + Redis)
+### 4) Lancer la stack
+
+**Développement local** (expose le backend sur le port 8000):
 
 ```bash
 cd /opt/math-correction
@@ -107,11 +109,26 @@ docker compose logs -f backend
 docker compose logs -f worker
 ```
 
-Health checks:
+**Production** (Caddy + TLS, backend non exposé):
+
+```bash
+cp .env.production.example .env
+# Remplir toutes les valeurs replace_with_*
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env ps
+```
+
+Health checks (dev — direct backend):
 
 ```bash
 curl http://localhost:8000/health
-curl http://46.224.150.0:8000/health
+```
+
+Health checks (production — via Caddy):
+
+```bash
+curl https://$APP_DOMAIN/api/health
+curl https://$APP_DOMAIN/api/health/ready
 ```
 
 ## Frontend local (ta machine)
@@ -127,7 +144,7 @@ npm run dev
 
 `frontend/.env.local` doit contenir:
 
-`NEXT_PUBLIC_API_BASE_URL=http://46.224.150.0:8000`
+`NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`
 
 > **Sécurité** : Ne jamais ajouter `NEXT_PUBLIC_ADMIN_API_TOKEN` dans `.env.local` ni dans aucun fichier frontend.
 > En production le token admin est injecté côté serveur par Caddy (`header_up Authorization`).
@@ -137,7 +154,7 @@ npm run dev
 ### 1) Créer un examen
 
 ```bash
-curl -X POST http://46.224.150.0:8000/exams \
+curl -X POST http://localhost:8000/exams \
   -H "Content-Type: application/json" \
   -d '{"title":"DS Maths","level":"Terminale","session":"2026"}'
 ```
@@ -145,7 +162,7 @@ curl -X POST http://46.224.150.0:8000/exams \
 ### 2) Uploader sujet/corrigé/barème
 
 ```bash
-curl -X POST http://46.224.150.0:8000/exams/<exam_id>/files \
+curl -X POST http://localhost:8000/exams/<exam_id>/files \
   -F subject_pdf=@./sujet.pdf\;type=application/pdf \
   -F correction_pdf=@./corrige.pdf\;type=application/pdf \
   -F rubric_pdf=@./bareme.pdf\;type=application/pdf
@@ -154,7 +171,7 @@ curl -X POST http://46.224.150.0:8000/exams/<exam_id>/files \
 ### 3) Uploader une copie
 
 ```bash
-curl -X POST http://46.224.150.0:8000/copies \
+curl -X POST http://localhost:8000/copies \
   -F exam_id=<exam_id> \
   -F student_name="Eleve 1" \
   -F file=@./copie.pdf\;type=application/pdf
@@ -163,9 +180,9 @@ curl -X POST http://46.224.150.0:8000/copies \
 ### 4) Lancer traitement (Celery)
 
 ```bash
-curl -X POST http://46.224.150.0:8000/copies/<copy_id>/process
-curl http://46.224.150.0:8000/copies/<copy_id>/status
-curl http://46.224.150.0:8000/copies/<copy_id>/pages
+curl -X POST http://localhost:8000/copies/<copy_id>/process
+curl http://localhost:8000/copies/<copy_id>/status
+curl http://localhost:8000/copies/<copy_id>/pages
 ```
 
 ### 4bis) Idempotence / relances
@@ -173,20 +190,20 @@ curl http://46.224.150.0:8000/copies/<copy_id>/pages
 Relance **sans** `force` (si déjà traité): pas d’erreur, réponse explicite:
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/copies/<copy_id>/process"
+curl -X POST "http://localhost:8000/copies/<copy_id>/process"
 ```
 
 Relance **avec** `force=true` (purge pages + suppression des images dérivées + recalcul):
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/copies/<copy_id>/process?force=true"
+curl -X POST "http://localhost:8000/copies/<copy_id>/process?force=true"
 ```
 
 ### 5) Voir une page (image)
 
 ```bash
-curl "http://46.224.150.0:8000/pages/<page_id>/image?type=original" -o page_original.png
-curl "http://46.224.150.0:8000/pages/<page_id>/image?type=processed" -o page_processed.png
+curl "http://localhost:8000/pages/<page_id>/image?type=original" -o page_original.png
+curl "http://localhost:8000/pages/<page_id>/image?type=processed" -o page_processed.png
 ```
 
 ## Tests automatiques (pytest)
@@ -202,15 +219,15 @@ docker compose exec backend pytest -q
 1) Health checks:
 
 ```bash
-curl http://46.224.150.0:8000/health
-curl http://46.224.150.0:8000/health/live
-curl http://46.224.150.0:8000/health/ready
+curl http://localhost:8000/health
+curl http://localhost:8000/health/live
+curl http://localhost:8000/health/ready
 ```
 
 2) Créer un examen:
 
 ```bash
-exam_json="$(curl -fsS -X POST http://46.224.150.0:8000/exams -H 'Content-Type: application/json' -d '{\"title\":\"DS Maths\",\"level\":\"Terminale\",\"session\":\"2026\"}')"
+exam_json="$(curl -fsS -X POST http://localhost:8000/exams -H 'Content-Type: application/json' -d '{\"title\":\"DS Maths\",\"level\":\"Terminale\",\"session\":\"2026\"}')"
 echo "$exam_json"
 ```
 
@@ -218,7 +235,7 @@ echo "$exam_json"
 
 ```bash
 exam_id="<exam_id>"
-curl -X POST "http://46.224.150.0:8000/exams/$exam_id/files" \
+curl -X POST "http://localhost:8000/exams/$exam_id/files" \
   -F subject_pdf=@./sujet.pdf\;type=application/pdf \
   -F correction_pdf=@./corrige.pdf\;type=application/pdf \
   -F rubric_pdf=@./bareme.pdf\;type=application/pdf
@@ -227,7 +244,7 @@ curl -X POST "http://46.224.150.0:8000/exams/$exam_id/files" \
 4) Uploader une copie:
 
 ```bash
-copy_json="$(curl -fsS -X POST http://46.224.150.0:8000/copies \
+copy_json="$(curl -fsS -X POST http://localhost:8000/copies \
   -F exam_id=$exam_id \
   -F student_name='Eleve 1' \
   -F copy_code='A1' \
@@ -239,30 +256,30 @@ echo "$copy_json"
 
 ```bash
 copy_id="<copy_id>"
-curl -X POST "http://46.224.150.0:8000/copies/$copy_id/process"
-curl "http://46.224.150.0:8000/copies/$copy_id/status"
-curl "http://46.224.150.0:8000/copies/$copy_id/pages"
+curl -X POST "http://localhost:8000/copies/$copy_id/process"
+curl "http://localhost:8000/copies/$copy_id/status"
+curl "http://localhost:8000/copies/$copy_id/pages"
 ```
 
 6) Afficher une page:
 
 ```bash
 page_id="<page_id>"
-curl "http://46.224.150.0:8000/pages/$page_id/image?type=original" -o original.png
-curl "http://46.224.150.0:8000/pages/$page_id/image?type=processed" -o processed.png
+curl "http://localhost:8000/pages/$page_id/image?type=original" -o original.png
+curl "http://localhost:8000/pages/$page_id/image?type=processed" -o processed.png
 ```
 
 7) Relancer traitement sans force:
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/copies/$copy_id/process"
+curl -X POST "http://localhost:8000/copies/$copy_id/process"
 ```
 
 8) Relancer traitement avec force:
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/copies/$copy_id/process?force=true"
-curl "http://46.224.150.0:8000/copies/$copy_id/pages"
+curl -X POST "http://localhost:8000/copies/$copy_id/process?force=true"
+curl "http://localhost:8000/copies/$copy_id/pages"
 ```
 
 9) Tester le frontend local:
@@ -277,7 +294,7 @@ npm run dev
 ## Intégrations (diagnostic, sans appel payant)
 
 ```bash
-curl http://46.224.150.0:8000/integrations/status
+curl http://localhost:8000/integrations/status
 ```
 
 ## OCR contrôlé (Phase 2) — activation prudente
@@ -303,32 +320,32 @@ Prérequis: copie déjà `processed_pages` et `page_id` connu.
 Mathpix (1 page):
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/pages/$page_id/ocr/mathpix?image_type=processed"
+curl -X POST "http://localhost:8000/pages/$page_id/ocr/mathpix?image_type=processed"
 ```
 
 Azure Document Intelligence (1 page):
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/pages/$page_id/ocr/azure?image_type=processed"
+curl -X POST "http://localhost:8000/pages/$page_id/ocr/azure?image_type=processed"
 ```
 
 OpenAI Vision (1 page, transcription uniquement):
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/pages/$page_id/ocr/openai-vision?image_type=processed"
+curl -X POST "http://localhost:8000/pages/$page_id/ocr/openai-vision?image_type=processed"
 ```
 
 Consulter les transcriptions stockées:
 
 ```bash
-curl "http://46.224.150.0:8000/pages/$page_id/transcriptions"
-curl "http://46.224.150.0:8000/copies/$copy_id/transcriptions"
+curl "http://localhost:8000/pages/$page_id/transcriptions"
+curl "http://localhost:8000/copies/$copy_id/transcriptions"
 ```
 
 Fusion prudente (sans appel payant, utilise les transcriptions existantes):
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/pages/$page_id/ocr/fuse"
+curl -X POST "http://localhost:8000/pages/$page_id/ocr/fuse"
 ```
 
 ### OCR d’une copie (limité)
@@ -337,7 +354,7 @@ curl -X POST "http://46.224.150.0:8000/pages/$page_id/ocr/fuse"
 ⚠️ Garde-fou supplémentaire: il exige `confirm_paid_calls=true` quand `OCR_ENABLE_PAID_CALLS=true`.
 
 ```bash
-curl -X POST "http://46.224.150.0:8000/copies/$copy_id/ocr?max_pages=3&sources=azure&confirm_paid_calls=true"
+curl -X POST "http://localhost:8000/copies/$copy_id/ocr?max_pages=3&sources=azure&confirm_paid_calls=true"
 ```
 
 Sources possibles: `sources=azure&sources=mathpix&sources=openai_vision`

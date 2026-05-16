@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CopyPage, Transcription } from "@/lib/types";
-import { apiGet, apiPostJson, getApiBaseUrl } from "@/lib/api";
+import { apiGet, apiPostJson, getApiBaseUrl, apiFetchBlob } from "@/lib/api";
 
 export function PageViewer({ pages }: { pages: CopyPage[] }) {
   const [mode, setMode] = useState<"original" | "processed">("processed");
@@ -10,6 +10,7 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
   const [transcriptions, setTranscriptions] = useState<Record<string, Transcription[]>>({});
   const [busy, setBusy] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<Record<string, string | null>>({});
+  const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
 
   function formatErr(e: any): string {
     if (!e) return "Unknown error";
@@ -28,6 +29,33 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
     Promise.all(pages.map((p) => refreshPage(p.id))).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pages.map((p) => p.id).join(",")]);
+
+  const pageIds = pages.map((p) => p.id).join(",");
+  useEffect(() => {
+    if (!base || pages.length === 0) return;
+    const prev: Record<string, string> = {};
+    let cancelled = false;
+    Promise.all(
+      pages.map(async (p) => {
+        try {
+          const blob = await apiFetchBlob(`/pages/${p.id}/image?type=${mode}`);
+          if (!cancelled) {
+            const url = URL.createObjectURL(blob);
+            prev[p.id] = url;
+          }
+        } catch {
+          // silently ignore — image will show placeholder
+        }
+      })
+    ).then(() => {
+      if (!cancelled) setBlobUrls({ ...prev });
+    });
+    return () => {
+      cancelled = true;
+      Object.values(prev).forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageIds, mode, base]);
 
   if (!base) {
     return (
@@ -87,12 +115,18 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
         {pages.map((p) => (
           <div key={p.id} className="rounded border p-3">
             <div className="mb-2 text-xs text-slate-600">Page {p.page_number}</div>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={`${base}/pages/${p.id}/image?type=${mode}`}
-              alt={`Page ${p.page_number} (${mode})`}
-              className="w-full rounded"
-            />
+            {blobUrls[p.id] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={blobUrls[p.id]}
+                alt={`Page ${p.page_number} (${mode})`}
+                className="w-full rounded"
+              />
+            ) : (
+              <div className="flex h-32 items-center justify-center rounded bg-slate-100 text-xs text-slate-500">
+                Chargement image...
+              </div>
+            )}
 
             <div className="mt-3 flex flex-wrap gap-2">
               <button
