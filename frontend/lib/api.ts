@@ -10,11 +10,19 @@ export function getApiBaseUrl(): string {
   return baseUrl.replace(/\/$/, "");
 }
 
+function getApiHeaders(extra?: HeadersInit): HeadersInit {
+  const token = process.env.NEXT_PUBLIC_ADMIN_API_TOKEN;
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(extra ?? {})
+  };
+}
+
 export async function apiGet<T>(path: string): Promise<T> {
   const base = getApiBaseUrl();
   if (!base) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
   const url = `${base}${path}`;
-  const res = await fetch(url, { cache: "no-store" });
+  const res = await fetch(url, { cache: "no-store", headers: getApiHeaders() });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw { status: res.status, message: `GET ${path} failed`, details: text } satisfies ApiError;
@@ -28,7 +36,7 @@ export async function apiPostJson<T>(path: string, body: unknown): Promise<T> {
   const url = `${base}${path}`;
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getApiHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(body)
   });
   if (!res.ok) {
@@ -42,7 +50,7 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<T> {
   const base = getApiBaseUrl();
   if (!base) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
   const url = `${base}${path}`;
-  const res = await fetch(url, { method: "POST", body: form });
+  const res = await fetch(url, { method: "POST", headers: getApiHeaders(), body: form });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw { status: res.status, message: `POST ${path} failed`, details: text } satisfies ApiError;

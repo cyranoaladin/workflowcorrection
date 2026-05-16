@@ -3,15 +3,18 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi import Depends
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import get_settings
 from app.core.logging_config import configure_logging
+from app.core.security import require_admin
 from app.core.storage import get_storage
 from app.routers import copies, corrections, exams, health, integrations, pages
 
 configure_logging()
 settings = get_settings()
+settings.validate_for_runtime()
 
 
 @asynccontextmanager
@@ -33,8 +36,9 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(integrations.router)
-app.include_router(exams.router)
-app.include_router(copies.router)
-app.include_router(pages.router)
-app.include_router(corrections.router)
+protected = [Depends(require_admin)]
+app.include_router(integrations.router, dependencies=protected)
+app.include_router(exams.router, dependencies=protected)
+app.include_router(copies.router, dependencies=protected)
+app.include_router(pages.router, dependencies=protected)
+app.include_router(corrections.router, dependencies=protected)

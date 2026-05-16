@@ -112,17 +112,31 @@ def test_missing_keys_errors_when_paid_calls_enabled(client, unique_title, clean
 
     get_settings.cache_clear()
 
-    r1 = client.post(f"/pages/{page_id}/ocr/mathpix")
+    r1 = client.post(f"/pages/{page_id}/ocr/mathpix?confirm_paid_call=true")
     assert r1.status_code == 400
     assert "missing_mathpix_keys" in str(r1.json())
 
-    r2 = client.post(f"/pages/{page_id}/ocr/azure")
+    r2 = client.post(f"/pages/{page_id}/ocr/azure?confirm_paid_call=true")
     assert r2.status_code == 400
     assert "missing_azure_document_intelligence_keys" in str(r2.json())
 
-    r3 = client.post(f"/pages/{page_id}/ocr/openai-vision")
+    r3 = client.post(f"/pages/{page_id}/ocr/openai-vision?confirm_paid_call=true")
     assert r3.status_code == 400
     assert "missing_openai_api_key" in str(r3.json())
+
+
+def test_page_ocr_requires_confirmation_when_paid_calls_enabled(client, unique_title, cleanup_ids, monkeypatch):
+    monkeypatch.setenv("OCR_ENABLE_PAID_CALLS", "true")
+    monkeypatch.setenv("MATHPIX_APP_ID", "id")
+    monkeypatch.setenv("MATHPIX_APP_KEY", "key")
+
+    from app.core.config import get_settings
+
+    get_settings.cache_clear()
+
+    r = client.post("/pages/00000000-0000-0000-0000-000000000000/ocr/mathpix")
+    assert r.status_code == 400
+    assert "confirmation_required" in str(r.json())
 
 
 def test_copy_ocr_max_pages_limit_enforced(client, unique_title, cleanup_ids, monkeypatch):

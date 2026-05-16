@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import traceback
 import uuid
 import shutil
 from pathlib import Path
@@ -10,6 +9,7 @@ from celery.utils.log import get_task_logger
 from sqlalchemy.orm import Session
 
 from app.core.database import SessionLocal
+from app.core.config import get_settings
 from app.core.storage import get_storage
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.page import CopyPage
@@ -17,6 +17,11 @@ from app.services.image_preprocess_service import preprocess_image
 from app.workers.celery_app import celery
 
 logger = get_task_logger(__name__)
+
+
+def enforce_pdf_page_limit(*, page_count: int, max_pages: int) -> None:
+    if page_count > max_pages:
+        raise ValueError(f"too_many_pages: PDF has {page_count} pages, limit is {max_pages}")
 
 
 def _load_pdf_module():
@@ -34,6 +39,7 @@ def _load_pdf_module():
 def process_copy(self, copy_id: str, force: bool = False) -> dict:
     db: Session = SessionLocal()
     storage = get_storage()
+    settings = get_settings()
 
     try:
         copy_uuid = UUID(copy_id)
@@ -81,6 +87,7 @@ def process_copy(self, copy_id: str, force: bool = False) -> dict:
         fitz = _load_pdf_module()
         doc = fitz.open(str(pdf_abs))
         page_count = doc.page_count
+        enforce_pdf_page_limit(page_count=page_count, max_pages=int(settings.PDF_MAX_PAGES))
         try:
             for idx in range(page_count):
                 page_number = idx + 1
@@ -137,6 +144,6 @@ def process_copy(self, copy_id: str, force: bool = False) -> dict:
                 db.commit()
         except Exception:
             pass
-        return {"status": "error", "error": str(e), "traceback": traceback.format_exc(limit=20)}
+        return {"status": "error", "error": f"{type(e).__name__}: {e}"}
     finally:
         db.close()

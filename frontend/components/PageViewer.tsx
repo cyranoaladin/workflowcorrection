@@ -11,18 +11,6 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
   const [busy, setBusy] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<Record<string, string | null>>({});
 
-  if (!base) {
-    return (
-      <div className="rounded border bg-white p-4 text-sm text-rose-700">
-        NEXT_PUBLIC_API_BASE_URL is not set. Configure `frontend/.env.local` before using the viewer.
-      </div>
-    );
-  }
-
-  if (pages.length === 0) {
-    return <div className="rounded border bg-white p-4 text-sm text-slate-600">Aucune page générée.</div>;
-  }
-
   function formatErr(e: any): string {
     if (!e) return "Unknown error";
     if (typeof e === "string") return e;
@@ -36,15 +24,28 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
   }
 
   useEffect(() => {
+    if (!base || pages.length === 0) return;
     Promise.all(pages.map((p) => refreshPage(p.id))).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pages.map((p) => p.id).join(",")]);
+
+  if (!base) {
+    return (
+      <div className="rounded border bg-white p-4 text-sm text-rose-700">
+        NEXT_PUBLIC_API_BASE_URL is not set. Configure `frontend/.env.local` before using the viewer.
+      </div>
+    );
+  }
+
+  if (pages.length === 0) {
+    return <div className="rounded border bg-white p-4 text-sm text-slate-600">Aucune page générée.</div>;
+  }
 
   async function run(pageId: string, action: "mathpix" | "azure" | "openai-vision" | "fuse") {
     setBusy((prev) => ({ ...prev, [pageId]: action }));
     setError((prev) => ({ ...prev, [pageId]: null }));
     try {
-      const qs = action === "fuse" ? "" : `?image_type=${mode}`;
+      const qs = action === "fuse" ? "" : `?image_type=${mode}&confirm_paid_call=true`;
       const path =
         action === "mathpix"
           ? `/pages/${pageId}/ocr/mathpix${qs}`

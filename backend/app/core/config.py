@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     PUBLIC_API_BASE_URL: str = "http://localhost:8000"
 
     # Database
+    POSTGRES_PASSWORD: str = ""
     DATABASE_URL: str = Field(
         default="postgresql+psycopg2://correction_user:change_me@postgres:5432/correction_db"
     )
@@ -31,6 +32,7 @@ class Settings(BaseSettings):
     STORAGE_BACKEND: str = "local"
     LOCAL_STORAGE_PATH: str = "/app/storage"
     MAX_UPLOAD_SIZE_MB: int = 50
+    PDF_MAX_PAGES: int = 50
 
     MINIO_ENDPOINT: str = "minio:9000"
     MINIO_ACCESS_KEY: str = ""
@@ -56,6 +58,7 @@ class Settings(BaseSettings):
     OCR_DEFAULT_IMAGE_TYPE: str = "processed"
 
     # Security (future)
+    ADMIN_API_TOKEN: str = ""
     JWT_SECRET: str = "change_me_long_random_secret"
     ADMIN_EMAIL: str = "admin@example.com"
     ADMIN_PASSWORD: str = "change_me"
@@ -69,6 +72,38 @@ class Settings(BaseSettings):
     @property
     def max_upload_bytes(self) -> int:
         return int(self.MAX_UPLOAD_SIZE_MB) * 1024 * 1024
+
+    def validate_for_runtime(self) -> None:
+        if self.APP_ENV.lower() not in {"production", "prod"}:
+            return
+
+        problems: list[str] = []
+
+        def unsafe_secret(name: str, value: str, *, min_len: int = 24) -> None:
+            normalized = (value or "").strip()
+            lowered = normalized.lower()
+            if (
+                not normalized
+                or len(normalized) < min_len
+                or "change_me" in lowered
+                or "replace_with" in lowered
+                or "example" in lowered
+            ):
+                problems.append(name)
+
+        unsafe_secret("ADMIN_API_TOKEN", self.ADMIN_API_TOKEN, min_len=32)
+        unsafe_secret("JWT_SECRET", self.JWT_SECRET, min_len=32)
+        unsafe_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD, min_len=16)
+        if "change_me" in self.DATABASE_URL.lower() or "replace_with" in self.DATABASE_URL.lower():
+            problems.append("DATABASE_URL")
+        if any(origin.startswith("http://") or "localhost" in origin or "127.0.0.1" in origin for origin in self.cors_allowed_origins):
+            problems.append("CORS_ALLOWED_ORIGINS")
+        if self.PUBLIC_API_BASE_URL.startswith("http://") or "localhost" in self.PUBLIC_API_BASE_URL:
+            problems.append("PUBLIC_API_BASE_URL")
+
+        if problems:
+            unique = ", ".join(sorted(set(problems)))
+            raise ValueError(f"Unsafe production settings: {unique}")
 
 
 @lru_cache(maxsize=1)

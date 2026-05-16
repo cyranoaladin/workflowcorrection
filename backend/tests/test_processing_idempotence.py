@@ -78,3 +78,13 @@ def test_processing_idempotence_force(client, unique_title, cleanup_ids):
     # Old derived page dirs removed
     assert all(not d.exists() for d in old_dirs)
 
+
+def test_processing_rejects_pdf_over_page_limit():
+    from app.workers.tasks import enforce_pdf_page_limit
+
+    try:
+        enforce_pdf_page_limit(page_count=2, max_pages=1)
+    except ValueError as exc:
+        assert "too_many_pages" in str(exc)
+    else:
+        raise AssertionError("Expected page limit rejection")

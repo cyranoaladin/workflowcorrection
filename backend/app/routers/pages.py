@@ -79,14 +79,27 @@ def _guard_paid_calls_enabled() -> None:
         )
 
 
+def _guard_paid_call_confirmed(confirm_paid_call: bool) -> None:
+    if not confirm_paid_call:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={
+                "error": "confirmation_required",
+                "message": "Set confirm_paid_call=true to run a paid OCR call.",
+            },
+        )
+
+
 @router.post("/{page_id}/ocr/mathpix", response_model=TranscriptionRead)
 def ocr_mathpix(
     page_id: UUID,
     image_type: str | None = Query(default=None, pattern="^(original|processed)$"),
+    confirm_paid_call: bool = Query(default=False),
     db: Session = Depends(get_db),
 ) -> Transcription:
     settings = get_settings()
     _guard_paid_calls_enabled()
+    _guard_paid_call_confirmed(confirm_paid_call)
     if not settings.MATHPIX_APP_ID or not settings.MATHPIX_APP_KEY:
         raise HTTPException(status_code=400, detail={"error": "missing_mathpix_keys", "message": "Mathpix keys not set"})
 
@@ -122,10 +135,12 @@ def ocr_mathpix(
 def ocr_azure(
     page_id: UUID,
     image_type: str | None = Query(default=None, pattern="^(original|processed)$"),
+    confirm_paid_call: bool = Query(default=False),
     db: Session = Depends(get_db),
 ) -> Transcription:
     settings = get_settings()
     _guard_paid_calls_enabled()
+    _guard_paid_call_confirmed(confirm_paid_call)
     if not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
         raise HTTPException(
             status_code=400,
@@ -168,10 +183,12 @@ def ocr_openai_vision(
     page_id: UUID,
     image_type: str | None = Query(default=None, pattern="^(original|processed)$"),
     question_context: str | None = Query(default=None, max_length=4000),
+    confirm_paid_call: bool = Query(default=False),
     db: Session = Depends(get_db),
 ) -> Transcription:
     settings = get_settings()
     _guard_paid_calls_enabled()
+    _guard_paid_call_confirmed(confirm_paid_call)
     if not settings.OPENAI_API_KEY:
         raise HTTPException(status_code=400, detail={"error": "missing_openai_api_key", "message": "OpenAI key not set"})
 

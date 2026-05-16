@@ -1,4 +1,6 @@
-# Math Correction Platform (MVP)
+# Math Correction Platform
+
+> Production deployment notes are in [`docs/GO_LIVE_CHECKLIST.md`](docs/GO_LIVE_CHECKLIST.md) and [`docs/SECURITY.md`](docs/SECURITY.md). Business API routes require `Authorization: Bearer <ADMIN_API_TOKEN>`; only health endpoints are public.
 
 Plateforme MVP pour des **copies de maths scannées** (PDF) avec un workflow **traçable** et **asynchrone**:
 
