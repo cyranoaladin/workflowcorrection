@@ -22,7 +22,7 @@ from app.services.azure_ocr_service import call_azure_read
 from app.services.mathpix_service import call_mathpix_image
 from app.services.openai_vision_service import call_openai_vision_for_transcription
 from app.workers.celery_app import celery
-from app.workers.tasks import process_copy
+from app.workers.tasks import grade_copy_task, process_copy
 
 router = APIRouter(tags=["copies"])
 
@@ -169,6 +169,27 @@ def list_copy_transcriptions(copy_id: UUID, db: Session = Depends(get_db)) -> li
         .order_by(Transcription.created_at.desc())
         .all()
     )
+
+
+@router.post("/copies/{copy_id}/grade-async")
+def launch_grade_async(
+    copy_id: UUID,
+    force: bool = Query(default=False),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Launch async LLM grading via Celery. Returns task_id for status polling."""
+    copy = db.get(StudentCopy, copy_id)
+    if not copy:
+        raise HTTPException(status_code=404, detail="Copy not found")
+
+    if copy.status == CopyStatus.corrected.value and not force:
+        return {"copy_id": str(copy_id), "status": "already_corrected"}
+
+    result = grade_copy_task.apply_async(args=[str(copy_id)], kwargs={"force": force})
+    copy.processing_task_id = result.id
+    db.add(copy)
+    db.commit()
+    return {"copy_id": str(copy_id), "task_id": result.id, "status": "grading_queued"}
 
 
 @router.post("/copies/{copy_id}/ocr")

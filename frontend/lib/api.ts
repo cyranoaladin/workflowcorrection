@@ -65,6 +65,19 @@ export async function apiPostForm<T>(path: string, form: FormData): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function apiPatch<T>(path: string, params?: Record<string, string | number>): Promise<T> {
+  const base = getApiBaseUrl();
+  if (!base) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");
+  const url = new URL(`${base}${path}`);
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+  const res = await fetch(url.toString(), { method: "PATCH", headers: getApiHeaders() });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw { status: res.status, message: `PATCH ${path} failed`, details: text } satisfies ApiError;
+  }
+  return (await res.json()) as T;
+}
+
 export async function apiFetchBlob(path: string): Promise<Blob> {
   const base = getApiBaseUrl();
   if (!base) throw new Error("NEXT_PUBLIC_API_BASE_URL is not set");

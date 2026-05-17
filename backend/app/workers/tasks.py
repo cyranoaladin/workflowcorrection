@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uuid
 import shutil
+from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
 
@@ -12,7 +13,12 @@ from app.core.database import SessionLocal
 from app.core.config import get_settings
 from app.core.storage import get_storage
 from app.models.copy import CopyStatus, StudentCopy
+from app.models.correction import Correction
+from app.models.exam import Exam
 from app.models.page import CopyPage
+from app.models.transcription import Transcription
+from app.services.audit_service import audit_correction
+from app.services.grading_service import grade_question
 from app.services.image_preprocess_service import preprocess_image
 from app.workers.celery_app import celery
 
@@ -140,6 +146,114 @@ def process_copy(self, copy_id: str, force: bool = False) -> dict:
             if copy:
                 copy.status = CopyStatus.failed.value
                 copy.error_message = f"{type(e).__name__}: {e}"
+                db.add(copy)
+                db.commit()
+        except Exception:
+            pass
+        return {"status": "error", "error": f"{type(e).__name__}: {e}"}
+    finally:
+        db.close()
+
+
+@celery.task(bind=True, name="grade_copy_task", track_started=True)
+def grade_copy_task(self, copy_id: str, force: bool = False) -> dict:
+    """
+    Async Celery task: grade all questions of a copy using LLM + rubric_json.
+    Called after OCR is complete.
+    """
+    db: Session = SessionLocal()
+    try:
+        copy_uuid = UUID(copy_id)
+        copy = db.get(StudentCopy, copy_uuid)
+        if not copy:
+            return {"status": "error", "reason": "copy_not_found"}
+
+        if copy.status == CopyStatus.corrected.value and not force:
+            return {"status": "skipped", "reason": "already_corrected"}
+
+        exam = db.get(Exam, copy.exam_id)
+        if not exam or not exam.rubric_json:
+            return {"status": "error", "reason": "no_rubric_json"}
+
+        rubric_questions: list[dict] = exam.rubric_json.get("questions", [])
+        if not rubric_questions:
+            return {"status": "error", "reason": "rubric_has_no_questions"}
+
+        transcriptions = (
+            db.query(Transcription)
+            .filter(Transcription.copy_id == copy_uuid)
+            .order_by(Transcription.created_at.desc())
+            .all()
+        )
+        full_transcription = "\n\n".join(
+            t.final_text or t.raw_text or ""
+            for t in transcriptions
+            if (t.final_text or t.raw_text)
+        )
+        if not full_transcription.strip():
+            return {"status": "error", "reason": "no_transcription"}
+
+        if force:
+            db.query(Correction).filter(Correction.copy_id == copy_uuid).delete(synchronize_session=False)
+            db.commit()
+
+        grading_results: list[dict] = []
+        for q in rubric_questions:
+            qid = str(q.get("id", "unknown"))
+            self.update_state(state="PROGRESS", meta={"grading_question": qid})
+            result = grade_question(qid, q, full_transcription)
+            grading_results.append(result)
+
+            if result.get("status") == "ok" and result.get("points_awarded") is not None:
+                corr = Correction(
+                    copy_id=copy_uuid,
+                    question_id=qid,
+                    points_max=Decimal(str(result["points_max"])),
+                    points_awarded=Decimal(str(result["points_awarded"])),
+                    correction_json={
+                        "justification": result.get("justification", ""),
+                        "criteria_details": result.get("criteria_details", []),
+                    },
+                    confidence=Decimal(str(result.get("confidence", 0))),
+                    needs_human_review=result.get("needs_human_review", True),
+                )
+                db.add(corr)
+
+        db.commit()
+
+        audit = audit_correction(
+            corrections=grading_results,
+            total_points=float(exam.total_points),
+            rubric_questions=rubric_questions,
+        )
+
+        total_awarded = sum(
+            float(r["points_awarded"])
+            for r in grading_results
+            if r.get("status") == "ok" and r.get("points_awarded") is not None
+        )
+
+        copy.total_score = Decimal(str(total_awarded))
+        copy.confidence = Decimal(str(audit.get("overall_confidence", 0)))
+        copy.status = CopyStatus.corrected.value
+        db.add(copy)
+        db.commit()
+
+        return {
+            "status": "ok",
+            "copy_id": copy_id,
+            "total_awarded": total_awarded,
+            "questions_graded": len(grading_results),
+            "audit_passed": audit.get("audit_passed"),
+        }
+
+    except Exception as e:
+        logger.exception("grade_copy_task failed for copy %s", copy_id)
+        try:
+            copy = db.get(StudentCopy, UUID(copy_id))
+            if copy:
+                copy.status = CopyStatus.failed.value
+                copy.error_message = f"grading: {type(e).__name__}: {e}"
                 db.add(copy)
                 db.commit()
         except Exception:
