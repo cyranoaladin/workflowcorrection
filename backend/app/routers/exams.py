@@ -216,7 +216,7 @@ def import_students_csv(
     errors: list[dict] = []
 
     for i, row in enumerate(reader, start=2):
-        clean = {k.strip().lower(): (v or "").strip() for k, v in row.items()}
+        clean = {(k or "").strip().lower(): (v or "").strip() for k, v in row.items()}
 
         student_name = clean.get("student_name") or clean.get("nom") or ""
         copy_code = clean.get("copy_code") or clean.get("code") or ""
