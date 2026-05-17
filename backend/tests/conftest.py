@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 
 
 # IMPORTANT: these env vars must be set before importing the app/settings.
+# APP_ENV=test ensures validate_for_runtime() is skipped even on prod servers.
+os.environ["APP_ENV"] = "test"
 TEST_STORAGE_ROOT = Path("/tmp/math-correction-test-storage")
 os.environ["LOCAL_STORAGE_PATH"] = str(TEST_STORAGE_ROOT)
 # Force a small limit for tests regardless of what's in .env / container env.
