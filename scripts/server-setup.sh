@@ -46,29 +46,37 @@ else
   ok "Projet cloné"
 fi
 
-# ── 3. Génération des secrets ────────────────────────────────
+# ── 3. Génération des secrets (une seule fois) ───────────────
 log "Génération des secrets..."
 
-ADMIN_API_TOKEN=$(openssl rand -hex 40)
-JWT_SECRET=$(openssl rand -hex 40)
-POSTGRES_PASSWORD=$(openssl rand -hex 24)
-BASIC_AUTH_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | head -c 20)
+# Si le .env existe déjà, réutiliser les secrets existants
+if [[ -f "$APP_DIR/.env" ]]; then
+  ADMIN_API_TOKEN=$(grep "^ADMIN_API_TOKEN=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
+  JWT_SECRET=$(grep "^JWT_SECRET=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
+  POSTGRES_PASSWORD=$(grep "^POSTGRES_PASSWORD=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
+  BASIC_AUTH_PASSWORD=$(grep "^# BASIC_AUTH_PASSWORD=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
+  ok "Secrets existants réutilisés depuis .env"
+fi
+
+# Générer uniquement les secrets manquants
+[[ -z "${ADMIN_API_TOKEN:-}" ]] && ADMIN_API_TOKEN=$(openssl rand -hex 40)
+[[ -z "${JWT_SECRET:-}" ]]      && JWT_SECRET=$(openssl rand -hex 40)
+[[ -z "${POSTGRES_PASSWORD:-}" ]] && POSTGRES_PASSWORD=$(openssl rand -hex 24)
+[[ -z "${BASIC_AUTH_PASSWORD:-}" ]] && BASIC_AUTH_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | head -c 20)
 
 # Hash bcrypt du mot de passe Basic Auth via htpasswd (nginx)
-if command -v htpasswd &>/dev/null; then
-  BASIC_AUTH_HASH=$(htpasswd -nbB admin "$BASIC_AUTH_PASSWORD" | cut -d: -f2)
-else
+if ! command -v htpasswd &>/dev/null; then
   apt-get install -y apache2-utils -qq
-  BASIC_AUTH_HASH=$(htpasswd -nbB admin "$BASIC_AUTH_PASSWORD" | cut -d: -f2)
 fi
+BASIC_AUTH_HASH=$(htpasswd -nbB admin "$BASIC_AUTH_PASSWORD" | cut -d: -f2)
 
 # Fichier htpasswd pour nginx
 mkdir -p /etc/nginx/auth
 echo "admin:${BASIC_AUTH_HASH}" > /etc/nginx/auth/correction.htpasswd
 chmod 640 /etc/nginx/auth/correction.htpasswd
-chown root:www-data /etc/nginx/auth/correction.htpasswd
+chown root:www-data /etc/nginx/auth/correction.htpasswd 2>/dev/null || true
 
-ok "Secrets générés"
+ok "Secrets prêts"
 
 # ── 4. Création du fichier .env de production ────────────────
 log "Création du .env de production..."
@@ -120,6 +128,7 @@ OPENAI_API_KEY=
 OPENAI_VISION_MODEL=gpt-4.1
 OPENAI_GRADING_MODEL=gpt-4.1
 OPENAI_AUDIT_MODEL=gpt-4.1
+# BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
 ENVEOF
 
 chmod 600 "$APP_DIR/.env"
@@ -127,8 +136,10 @@ ok ".env créé (chmod 600)"
 
 # ── 5. Mise à jour docker-compose.labomaths.yml avec les bons ports ──
 log "Configuration des ports Docker (backend:${BACKEND_PORT}, frontend:${FRONTEND_PORT})..."
-sed -i "s|127.0.0.1:8001:8000|127.0.0.1:${BACKEND_PORT}:8000|g" "$APP_DIR/docker-compose.labomaths.yml"
-sed -i "s|127.0.0.1:3001:3000|127.0.0.1:${FRONTEND_PORT}:3000|g" "$APP_DIR/docker-compose.labomaths.yml"
+grep -q "127.0.0.1:${BACKEND_PORT}:8000" "$APP_DIR/docker-compose.labomaths.yml" \
+  || sed -i "s|127.0.0.1:8001:8000|127.0.0.1:${BACKEND_PORT}:8000|g" "$APP_DIR/docker-compose.labomaths.yml"
+grep -q "127.0.0.1:${FRONTEND_PORT}:3000" "$APP_DIR/docker-compose.labomaths.yml" \
+  || sed -i "s|127.0.0.1:3001:3000|127.0.0.1:${FRONTEND_PORT}:3000|g" "$APP_DIR/docker-compose.labomaths.yml"
 ok "Ports configurés"
 
 # ── 6. Configuration Nginx — ajout de /correction/ ──────────
@@ -153,51 +164,65 @@ if grep -q "location /correction/" "$NGINX_CONF"; then
 else
   # Injerer avant la dernière accolade fermante du bloc server 443
   # Insertion avant le bloc "# Default" ou avant la dernière location /
-  CORRECTION_BLOCK="
-    # ── Correction workflow (/correction/) ───────────────────
-    # Basic Auth protection
-    location /correction/api/health {
-        proxy_pass http://127.0.0.1:${BACKEND_PORT}/health;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
+  python3 - "$NGINX_CONF" "$BACKEND_PORT" "$FRONTEND_PORT" "$ADMIN_API_TOKEN" << 'PYEOF'
+import sys, re
 
-    location /correction/api/ {
-        auth_basic \"Correction — Accès restreint\";
+conf_path  = sys.argv[1]
+back_port  = sys.argv[2]
+front_port = sys.argv[3]
+api_token  = sys.argv[4]
+
+block = f"""
+    # ── Correction workflow (/correction/) ───────────────────
+    location /correction/api/health {{
+        proxy_pass http://127.0.0.1:{back_port}/health;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+
+    location /correction/api/ {{
+        auth_basic "Correction - Acces restreint";
         auth_basic_user_file /etc/nginx/auth/correction.htpasswd;
-        proxy_pass http://127.0.0.1:${BACKEND_PORT}/;
+        proxy_pass http://127.0.0.1:{back_port}/;
         proxy_http_version 1.1;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_set_header Authorization \"Bearer ${ADMIN_API_TOKEN}\";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Authorization "Bearer {api_token}";
         client_max_body_size 50M;
         proxy_read_timeout 300s;
-    }
+    }}
 
-    location /correction/ {
-        auth_basic \"Correction — Accès restreint\";
+    location /correction/ {{
+        auth_basic "Correction - Acces restreint";
         auth_basic_user_file /etc/nginx/auth/correction.htpasswd;
-        proxy_pass http://127.0.0.1:${FRONTEND_PORT}/;
+        proxy_pass http://127.0.0.1:{front_port}/;
         proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection \"upgrade\";
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 86400;
-    }
-"
-  # Insérer avant "# Default" ou avant la dernière "location /"
-  if grep -q "# Default" "$NGINX_CONF"; then
-    sed -i "s|# Default|${CORRECTION_BLOCK}\n    # Default|" "$NGINX_CONF"
-  else
-    # Insérer avant la dernière accolade fermante
-    sed -i "$ s|}|${CORRECTION_BLOCK}\n}|" "$NGINX_CONF"
-  fi
+    }}
+"""
+
+content = open(conf_path).read()
+
+# Insert before "# Default" anchor if present, else before last closing brace
+if "# Default" in content:
+    content = content.replace("    # Default", block + "\n    # Default", 1)
+else:
+    # Find last } in the last server block and insert before it
+    idx = content.rfind("}")
+    content = content[:idx] + block + "\n}"
+
+open(conf_path, "w").write(content)
+print("  Block /correction/ injected")
+PYEOF
   ok "Bloc /correction/ injecté dans Nginx"
 fi
 
