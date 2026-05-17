@@ -14,6 +14,13 @@ class ExamCreate(BaseModel):
     session: str | None = None
 
 
+class ExamUpdate(BaseModel):
+    title: str | None = None
+    level: str | None = None
+    session: str | None = None
+    total_points: Decimal | None = None
+
+
 class ExamRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

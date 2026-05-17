@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiGet, apiPostForm } from "@/lib/api";
+import { apiGet, apiPostForm, apiPostJson } from "@/lib/api";
 import type { Exam, StudentCopy } from "@/lib/types";
 import { CopyCard } from "@/components/CopyCard";
 import { FileUpload } from "@/components/FileUpload";
@@ -15,6 +15,9 @@ export default function ExamDetailPage() {
   const [exam, setExam] = useState<Exam | null>(null);
   const [copies, setCopies] = useState<StudentCopy[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [rubricText, setRubricText] = useState<string>("");
+  const [rubricSaving, setRubricSaving] = useState(false);
+  const [rubricError, setRubricError] = useState<string | null>(null);
 
   const examId = useMemo(() => id, [id]);
 
@@ -44,6 +47,20 @@ export default function ExamDetailPage() {
     await refresh();
   }
 
+  async function saveRubricJson() {
+    setRubricSaving(true);
+    setRubricError(null);
+    try {
+      const parsed = JSON.parse(rubricText);
+      await apiPostJson(`/exams/${examId}/rubric-json`, parsed);
+      await refresh();
+    } catch (e: any) {
+      setRubricError(e?.message ?? "JSON invalide ou erreur serveur");
+    } finally {
+      setRubricSaving(false);
+    }
+  }
+
   if (!exam) {
     return <div className="text-sm text-slate-600">Chargement...</div>;
   }
@@ -57,9 +74,14 @@ export default function ExamDetailPage() {
             {exam.level ?? "—"} · {exam.session ?? "—"}
           </div>
         </div>
-        <Link href="/exams" className="text-sm text-slate-700 hover:text-slate-900">
-          ← Back
-        </Link>
+        <div className="flex gap-3">
+          <Link href={`/exams/${examId}/bilan`} className="rounded border border-indigo-300 px-3 py-1.5 text-sm text-indigo-700 hover:bg-indigo-50">
+            Bilan classe
+          </Link>
+          <Link href="/exams" className="text-sm text-slate-700 hover:text-slate-900 self-center">
+            ← Back
+          </Link>
+        </div>
       </div>
 
       {error ? <div className="rounded border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</div> : null}
@@ -73,6 +95,34 @@ export default function ExamDetailPage() {
       <FileUpload label="Upload copie élève (PDF)" accept="application/pdf" onUpload={uploadCopy} />
 
       <StudentCsvUpload examId={examId} onImported={() => refresh()} />
+
+      {/* Rubric JSON */}
+      <div className="rounded border bg-white p-4">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-sm font-medium">Barème structuré (JSON) — requis pour la correction IA</div>
+          {exam.rubric_json && (exam.rubric_json as any).questions && (
+            <span className="text-xs text-emerald-600">✓ {((exam.rubric_json as any).questions as any[]).length} question(s) configurée(s)</span>
+          )}
+        </div>
+        <p className="mb-2 text-xs text-slate-500">
+          Format : <code className="rounded bg-slate-100 px-1">{`{"questions":[{"id":"Q1","label":"...","points_max":4,"criteria":["..."],"expected_answer":"..."}]}`}</code>
+        </p>
+        <textarea
+          className="w-full rounded border px-3 py-2 font-mono text-xs"
+          rows={5}
+          placeholder='{"questions": [{"id": "Q1", "label": "...", "points_max": 4, "criteria": ["..."]}]}'
+          value={rubricText || (exam.rubric_json ? JSON.stringify(exam.rubric_json, null, 2) : "")}
+          onChange={(e) => setRubricText(e.target.value)}
+        />
+        {rubricError && <div className="mt-1 text-xs text-rose-600">{rubricError}</div>}
+        <button
+          onClick={saveRubricJson}
+          disabled={rubricSaving || !rubricText}
+          className="mt-2 rounded bg-indigo-600 px-3 py-1.5 text-xs text-white hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {rubricSaving ? "Enregistrement..." : "Enregistrer le barème"}
+        </button>
+      </div>
 
       <div className="space-y-3">
         <div className="text-sm font-medium">Copies</div>

@@ -5,7 +5,7 @@ import io
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -13,7 +13,7 @@ from app.core.storage import StorageError, get_storage
 from app.core.upload_validation import UploadValidationError, validate_pdf_upload
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.exam import Exam
-from app.schemas.exam_schema import ExamCreate, ExamRead
+from app.schemas.exam_schema import ExamCreate, ExamRead, ExamUpdate
 
 from app.core.database import get_db
 
@@ -98,6 +98,65 @@ def upload_exam_files(
         storage.save_bytes(rubric_tex.encode("utf-8"), tex_rel)
         exam.rubric_json = {**(exam.rubric_json or {}), "rubric_tex_path": tex_rel}
 
+    db.add(exam)
+    db.commit()
+    db.refresh(exam)
+    return exam
+
+
+@router.patch("/{exam_id}", response_model=ExamRead)
+def update_exam(
+    exam_id: UUID,
+    payload: ExamUpdate,
+    db: Session = Depends(get_db),
+) -> Exam:
+    exam = db.get(Exam, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    if payload.title is not None:
+        exam.title = payload.title
+    if payload.level is not None:
+        exam.level = payload.level
+    if payload.session is not None:
+        exam.session = payload.session
+    if payload.total_points is not None:
+        exam.total_points = payload.total_points
+    db.add(exam)
+    db.commit()
+    db.refresh(exam)
+    return exam
+
+
+@router.post("/{exam_id}/rubric-json", response_model=ExamRead)
+def set_rubric_json(
+    exam_id: UUID,
+    rubric: dict = Body(..., example={"questions": [{"id": "Q1", "label": "Calculer la dérivée", "points_max": 4, "criteria": ["Méthode correcte", "Résultat exact"]}]}),
+    db: Session = Depends(get_db),
+) -> Exam:
+    """
+    Set or replace the structured rubric JSON for an exam.
+    Expected format: {"questions": [{"id": str, "label": str, "points_max": float, "criteria": list[str], "expected_answer": str (optional)}]}
+    This is required before running LLM grading.
+    """
+    exam = db.get(Exam, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    questions = rubric.get("questions", [])
+    if not isinstance(questions, list) or not questions:
+        raise HTTPException(
+            status_code=422,
+            detail={"error": "invalid_rubric", "message": "rubric must contain a non-empty 'questions' list"},
+        )
+    for i, q in enumerate(questions):
+        if not isinstance(q, dict):
+            raise HTTPException(status_code=422, detail={"error": "invalid_question", "message": f"Question {i} must be an object"})
+        if not q.get("id"):
+            raise HTTPException(status_code=422, detail={"error": "missing_question_id", "message": f"Question {i} missing 'id'"})
+        if q.get("points_max") is None:
+            raise HTTPException(status_code=422, detail={"error": "missing_points_max", "message": f"Question {q.get('id')} missing 'points_max'"})
+
+    exam.rubric_json = rubric
     db.add(exam)
     db.commit()
     db.refresh(exam)
