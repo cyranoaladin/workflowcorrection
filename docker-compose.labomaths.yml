@@ -1,0 +1,86 @@
+# docker-compose.labomaths.yml
+# Stack workflowcorrection pour intégration dans maths.labomaths.tn
+# Caddy est géré en SERVICE SYSTÈME sur le serveur (pas en Docker).
+# Le backend écoute sur 127.0.0.1:8001 et le frontend sur 127.0.0.1:3001
+# pour que le Caddy système puisse les proxifier sans conflit de ports.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      APP_ENV: production
+      LOCAL_STORAGE_PATH: /app/storage
+    volumes:
+      - ./storage:/app/storage
+    ports:
+      - "127.0.0.1:8001:8000"   # Accessible uniquement depuis localhost pour Caddy système
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      APP_ENV: production
+      LOCAL_STORAGE_PATH: /app/storage
+    volumes:
+      - ./storage:/app/storage
+    command: celery -A app.workers.celery_app.celery worker --loglevel=INFO --concurrency=2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    ports:
+      - "127.0.0.1:3001:3000"   # Accessible uniquement depuis localhost pour Caddy système
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

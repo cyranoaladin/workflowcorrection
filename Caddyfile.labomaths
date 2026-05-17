@@ -15,11 +15,12 @@
 #
 #  PRÉREQUIS :
 #    - Le site statique maths.labomaths.tn est servi depuis /var/www/maths
-#      (adapter le chemin si différent)
-#    - workflowcorrection tourne en Docker sur le même serveur
-#      (backend:8000, frontend:3000 dans le réseau Docker)
-#    - Variables d'environnement Caddy (dans .env ou environment du service) :
-#        CADDY_ACME_EMAIL, CADDY_BASIC_AUTH_USER, CADDY_BASIC_AUTH_HASH, ADMIN_API_TOKEN
+#      (adapter le chemin si différent, le script server-setup.sh le détecte auto)
+#    - workflowcorrection tourne via docker-compose.labomaths.yml :
+#        backend exposé sur 127.0.0.1:8001
+#        frontend exposé sur 127.0.0.1:3001
+#    - Variables d'environnement Caddy dans /etc/systemd/system/caddy.service.d/override.conf
+#        (créé automatiquement par server-setup.sh)
 # ============================================================
 
 {
@@ -36,14 +37,14 @@ maths.labomaths.tn {
 
 	handle @correction_health {
 		uri strip_prefix /correction/api
-		reverse_proxy localhost:8000
+		reverse_proxy localhost:8001
 	}
 
 	handle_path /correction/api/* {
 		basic_auth {
 			{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
 		}
-		reverse_proxy localhost:8000 {
+		reverse_proxy localhost:8001 {
 			header_up Authorization "Bearer {$ADMIN_API_TOKEN}"
 		}
 	}
@@ -52,7 +53,7 @@ maths.labomaths.tn {
 		basic_auth {
 			{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
 		}
-		reverse_proxy localhost:3000
+		reverse_proxy localhost:3001
 	}
 
 	# Redirection pratique sans slash final
