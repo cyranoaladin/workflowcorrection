@@ -50,19 +50,26 @@ fi
 log "Génération des secrets..."
 
 # Si le .env existe déjà, réutiliser les secrets existants
+ADMIN_API_TOKEN=""
+JWT_SECRET=""
+POSTGRES_PASSWORD=""
+BASIC_AUTH_PASSWORD=""
+
 if [[ -f "$APP_DIR/.env" ]]; then
-  ADMIN_API_TOKEN=$(grep "^ADMIN_API_TOKEN=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
-  JWT_SECRET=$(grep "^JWT_SECRET=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
-  POSTGRES_PASSWORD=$(grep "^POSTGRES_PASSWORD=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
-  BASIC_AUTH_PASSWORD=$(grep "^# BASIC_AUTH_PASSWORD=" "$APP_DIR/.env" | cut -d= -f2 | tr -d '[:space:]')
+  set +o pipefail
+  ADMIN_API_TOKEN=$(grep "^ADMIN_API_TOKEN=" "$APP_DIR/.env" 2>/dev/null | cut -d= -f2 || true)
+  JWT_SECRET=$(grep "^JWT_SECRET=" "$APP_DIR/.env" 2>/dev/null | cut -d= -f2 || true)
+  POSTGRES_PASSWORD=$(grep "^POSTGRES_PASSWORD=" "$APP_DIR/.env" 2>/dev/null | cut -d= -f2 || true)
+  BASIC_AUTH_PASSWORD=$(grep "^# BASIC_AUTH_PASSWORD=" "$APP_DIR/.env" 2>/dev/null | cut -d= -f2 || true)
+  set -o pipefail
   ok "Secrets existants réutilisés depuis .env"
 fi
 
 # Générer uniquement les secrets manquants
-[[ -z "${ADMIN_API_TOKEN:-}" ]] && ADMIN_API_TOKEN=$(openssl rand -hex 40)
-[[ -z "${JWT_SECRET:-}" ]]      && JWT_SECRET=$(openssl rand -hex 40)
-[[ -z "${POSTGRES_PASSWORD:-}" ]] && POSTGRES_PASSWORD=$(openssl rand -hex 24)
-[[ -z "${BASIC_AUTH_PASSWORD:-}" ]] && BASIC_AUTH_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | head -c 20)
+[[ -z "$ADMIN_API_TOKEN" ]]    && ADMIN_API_TOKEN=$(openssl rand -hex 40)
+[[ -z "$JWT_SECRET" ]]         && JWT_SECRET=$(openssl rand -hex 40)
+[[ -z "$POSTGRES_PASSWORD" ]]  && POSTGRES_PASSWORD=$(openssl rand -hex 24)
+[[ -z "$BASIC_AUTH_PASSWORD" ]] && BASIC_AUTH_PASSWORD=$(openssl rand -base64 18 | tr -d '/+=' | head -c 20)
 
 # Hash bcrypt du mot de passe Basic Auth via htpasswd (nginx)
 if ! command -v htpasswd &>/dev/null; then
