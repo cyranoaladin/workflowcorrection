@@ -158,7 +158,7 @@ NGINX_CONF=$(grep -rl "server_name maths.labomaths.tn" \
   /etc/nginx/conf.d/ \
   /etc/nginx/vhosts-enabled/ \
   /etc/nginx/vhosts/ \
-  2>/dev/null | grep -v '\.backup$' | head -1 || true)
+  2>/dev/null | grep -v '\.bak' | grep -v '\.backup' | head -1 || true)
 [[ -z "$NGINX_CONF" ]] && err "Impossible de trouver la config Nginx pour maths.labomaths.tn"
 
 # Backup
