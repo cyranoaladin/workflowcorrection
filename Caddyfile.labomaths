@@ -49,15 +49,22 @@ maths.labomaths.tn {
 		}
 	}
 
-	handle_path /correction/* {
+	# Redirection pratique sans slash final
+	redir /correction /correction/ 301
+
+	# Static Next.js assets (_next/) — no auth needed, proxied with prefix intact
+	# With basePath="/correction" in next.config, Next.js emits /correction/_next/...
+	handle /correction/_next/* {
+		reverse_proxy localhost:3001
+	}
+
+	# Frontend app pages — Basic Auth, full prefix passed through to Next.js
+	handle /correction/* {
 		basic_auth {
 			{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
 		}
 		reverse_proxy localhost:3001
 	}
-
-	# Redirection pratique sans slash final
-	redir /correction /correction/ 301
 
 	# ── Site statique maths — tout le reste ─────────────────
 	# Adapter /var/www/maths au chemin réel du site sur le serveur

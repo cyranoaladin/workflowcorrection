@@ -17,7 +17,9 @@ if (
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  outputFileTracingRoot: path.join(process.cwd())
+  outputFileTracingRoot: path.join(process.cwd()),
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || "",
+  assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || "",
 };
 
 export default nextConfig;

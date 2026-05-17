@@ -10,6 +10,20 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr">
+      <head>
+        {/* Unregister any Service Worker from the parent site (maths.labomaths.tn)
+            that may intercept /correction/* requests and serve stale HTML assets */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              regs.forEach(function(reg) { reg.unregister(); });
+            });
+            caches.keys().then(function(keys) {
+              keys.forEach(function(k) { caches.delete(k); });
+            });
+          }
+        `}} />
+      </head>
       <body className="min-h-screen bg-slate-50">
         {/* ── Topbar ─────────────────────────────────────────────── */}
         <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-sm shadow-sm">
