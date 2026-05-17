@@ -134,11 +134,14 @@ ok "Ports configurés"
 # ── 6. Configuration Nginx — ajout de /correction/ ──────────
 log "Configuration Nginx pour /correction/..."
 
-NGINX_CONF="/etc/nginx/sites-available/maths.labomaths.tn"
-if [[ ! -f "$NGINX_CONF" ]]; then
-  NGINX_CONF=$(grep -rl "server_name maths.labomaths.tn" /etc/nginx/sites-available/ /etc/nginx/conf.d/ 2>/dev/null | head -1 || true)
-  [[ -z "$NGINX_CONF" ]] && err "Impossible de trouver la config Nginx pour maths.labomaths.tn"
-fi
+NGINX_CONF=$(grep -rl "server_name maths.labomaths.tn" \
+  /etc/nginx/sites-available/ \
+  /etc/nginx/sites-enabled/ \
+  /etc/nginx/conf.d/ \
+  /etc/nginx/vhosts-enabled/ \
+  /etc/nginx/vhosts/ \
+  2>/dev/null | grep -v '\.backup$' | head -1 || true)
+[[ -z "$NGINX_CONF" ]] && err "Impossible de trouver la config Nginx pour maths.labomaths.tn"
 
 # Backup
 cp "$NGINX_CONF" "${NGINX_CONF}.bak.$(date +%Y%m%d%H%M%S)"
