@@ -1,0 +1,68 @@
+# ============================================================
+#  Caddyfile — maths.labomaths.tn
+#
+#  Ce fichier REMPLACE le Caddyfile existant du site statique.
+#  Il ajoute workflowcorrection sous le préfixe /correction/
+#
+#  DÉPLOIEMENT :
+#    Copier ce fichier sur le serveur :
+#      scp Caddyfile.labomaths root@88.99.254.59:/opt/math-correction/Caddyfile.labomaths
+#    Puis sur le serveur :
+#      cp /opt/math-correction/Caddyfile.labomaths /etc/caddy/Caddyfile
+#      systemctl reload caddy    (si Caddy est installé en service système)
+#    OU si Caddy tourne en Docker :
+#      docker compose -f docker-compose.prod.yml restart caddy
+#
+#  PRÉREQUIS :
+#    - Le site statique maths.labomaths.tn est servi depuis /var/www/maths
+#      (adapter le chemin si différent)
+#    - workflowcorrection tourne en Docker sur le même serveur
+#      (backend:8000, frontend:3000 dans le réseau Docker)
+#    - Variables d'environnement Caddy (dans .env ou environment du service) :
+#        CADDY_ACME_EMAIL, CADDY_BASIC_AUTH_USER, CADDY_BASIC_AUTH_HASH, ADMIN_API_TOKEN
+# ============================================================
+
+{
+	email {$CADDY_ACME_EMAIL}
+}
+
+maths.labomaths.tn {
+
+	# ── Correction workflow — /correction/* ─────────────────
+	# Toutes les routes /correction/ pointent vers l'app workflowcorrection
+	# Accès protégé par Basic Auth (même identifiants que l'admin)
+
+	@correction_health path /correction/api/health /correction/api/health/live /correction/api/health/ready
+
+	handle @correction_health {
+		uri strip_prefix /correction/api
+		reverse_proxy localhost:8000
+	}
+
+	handle_path /correction/api/* {
+		basic_auth {
+			{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
+		}
+		reverse_proxy localhost:8000 {
+			header_up Authorization "Bearer {$ADMIN_API_TOKEN}"
+		}
+	}
+
+	handle_path /correction/* {
+		basic_auth {
+			{$CADDY_BASIC_AUTH_USER} {$CADDY_BASIC_AUTH_HASH}
+		}
+		reverse_proxy localhost:3000
+	}
+
+	# Redirection pratique sans slash final
+	redir /correction /correction/ 301
+
+	# ── Site statique maths — tout le reste ─────────────────
+	# Adapter /var/www/maths au chemin réel du site sur le serveur
+	handle {
+		root * /var/www/maths
+		file_server
+		try_files {path} {path}.html /content/index.html
+	}
+}

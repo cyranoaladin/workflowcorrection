@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 from typing import Any
 from uuid import UUID
 
@@ -9,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.storage import StorageError, get_storage
 from app.core.upload_validation import UploadValidationError, validate_pdf_upload
+from app.models.copy import CopyStatus, StudentCopy
 from app.models.exam import Exam
 from app.schemas.exam_schema import ExamCreate, ExamRead
 
@@ -99,3 +102,79 @@ def upload_exam_files(
     db.commit()
     db.refresh(exam)
     return exam
+
+
+@router.post("/{exam_id}/students/csv")
+def import_students_csv(
+    exam_id: UUID,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+) -> dict:
+    """
+    Import a student list from a CSV file for an exam.
+
+    Expected CSV columns (order does not matter, header required):
+      student_name  — full name of the student
+      copy_code     — unique identifier / seat number (optional column)
+
+    Creates a StudentCopy per row with status=registered and no PDF yet.
+    The PDF can be uploaded later via POST /copies.
+    Skips rows where both student_name and copy_code are empty.
+    Returns {"created": N, "skipped": N, "errors": [...]}
+    """
+    exam = db.get(Exam, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    if file.content_type not in ("text/csv", "text/plain", "application/csv", "application/octet-stream"):
+        content_type = file.content_type or ""
+        if not content_type.startswith("text/"):
+            raise HTTPException(status_code=415, detail={"error": "invalid_file_type", "message": "File must be a CSV"})
+
+    raw = file.file.read()
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        try:
+            text = raw.decode("latin-1")
+        except UnicodeDecodeError:
+            raise HTTPException(status_code=422, detail={"error": "encoding_error", "message": "Cannot decode CSV file. Use UTF-8 or Latin-1 encoding."})
+
+    reader = csv.DictReader(io.StringIO(text))
+
+    normalized_headers = [h.strip().lower() for h in (reader.fieldnames or [])]
+    if "student_name" not in normalized_headers and "nom" not in normalized_headers:
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "error": "missing_column",
+                "message": "CSV must have a 'student_name' column (or 'nom' in French). Optional: 'copy_code'.",
+            },
+        )
+
+    created = 0
+    skipped = 0
+    errors: list[dict] = []
+
+    for i, row in enumerate(reader, start=2):
+        clean = {k.strip().lower(): (v or "").strip() for k, v in row.items()}
+
+        student_name = clean.get("student_name") or clean.get("nom") or ""
+        copy_code = clean.get("copy_code") or clean.get("code") or ""
+
+        if not student_name and not copy_code:
+            skipped += 1
+            continue
+
+        copy = StudentCopy(
+            exam_id=exam_id,
+            student_name=student_name or None,
+            copy_code=copy_code or None,
+            original_pdf_path="pending",
+            status=CopyStatus.uploaded.value,
+        )
+        db.add(copy)
+        created += 1
+
+    db.commit()
+    return {"created": created, "skipped": skipped, "errors": errors}

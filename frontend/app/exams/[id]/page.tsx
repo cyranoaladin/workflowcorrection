@@ -7,6 +7,7 @@ import { apiGet, apiPostForm } from "@/lib/api";
 import type { Exam, StudentCopy } from "@/lib/types";
 import { CopyCard } from "@/components/CopyCard";
 import { FileUpload } from "@/components/FileUpload";
+import { StudentCsvUpload } from "@/components/StudentCsvUpload";
 
 export default function ExamDetailPage() {
   const params = useParams();
@@ -70,6 +71,8 @@ export default function ExamDetailPage() {
       </div>
 
       <FileUpload label="Upload copie élève (PDF)" accept="application/pdf" onUpload={uploadCopy} />
+
+      <StudentCsvUpload examId={examId} onImported={() => refresh()} />
 
       <div className="space-y-3">
         <div className="text-sm font-medium">Copies</div>
