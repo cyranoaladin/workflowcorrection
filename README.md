@@ -365,6 +365,30 @@ Sources possibles: `sources=azure&sources=mathpix&sources=openai_vision`
 - Toujours commencer par 1 page, comparer les sorties, puis fusionner et valider humainement.
 - Ne pas lancer d’OCR sur “toutes les copies” sans limite stricte.
 
+## RAG — documentation pédagogique indexée
+
+La phase RAG ajoute une base de connaissances par examen pour enrichir la correction:
+
+- PostgreSQL utilise l’extension `pgvector` via l’image Docker `pgvector/pgvector:pg16`.
+- `POST /exams/{exam_id}/embed?force=false` indexe explicitement le barème JSON et les PDF de corrigé/barème déjà associés à l’examen.
+- `GET /exams/{exam_id}/knowledge` liste les documents indexés, leur hash et le nombre de chunks.
+- Aucun embedding n’est lancé pendant l’upload d’un PDF: l’indexation reste une action explicite, comme les garde-fous OCR payants.
+
+Configuration:
+
+```env
+EMBEDDING_PROVIDER=openai
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSION=1536
+TEI_ENDPOINT=
+RAG_TOP_K=5
+RAG_MIN_SCORE=0.35
+```
+
+Provider OpenAI: requiert `OPENAI_API_KEY` au moment de `POST /exams/{id}/embed`.
+
+Provider TEI: définir `EMBEDDING_PROVIDER=tei` et `TEI_ENDPOINT=http://tei:80`; le backend poste `{"inputs": [...]}` sur `/embed`.
+
 ## Endpoints (backend)
 
 - `GET /health`
@@ -380,6 +404,8 @@ Sources possibles: `sources=azure&sources=mathpix&sources=openai_vision`
 - `GET /pages/{page_id}/image?type=original|processed`
 - `GET /copies/{copy_id}/status`
 - `GET /copies/{copy_id}/correction` (MVP: vide)
+- `POST /exams/{exam_id}/embed` (option: `?force=true`)
+- `GET /exams/{exam_id}/knowledge`
 
 ## Stockage
 

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import uuid
 import shutil
+import hashlib
+import json
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from uuid import UUID
@@ -15,11 +18,15 @@ from app.core.storage import get_storage
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.correction import Correction
 from app.models.exam import Exam
+from app.models.knowledge import KnowledgeChunk, KnowledgeDocument
 from app.models.page import CopyPage
 from app.models.transcription import Transcription
 from app.services.audit_service import audit_correction
+from app.services.chunking_service import Chunk, chunk_correction_pdf, chunk_generic_pdf, chunk_rubric_json
+from app.services.embedding_service import embed_texts
 from app.services.grading_service import grade_question
 from app.services.image_preprocess_service import preprocess_image
+from app.services.rag_service import _vector_literal
 from app.workers.celery_app import celery
 
 logger = get_task_logger(__name__)
@@ -39,6 +46,75 @@ def _load_pdf_module():
         import fitz  # type: ignore
 
         return fitz
+
+
+def _sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _extract_pdf_text_per_page(pdf_path: Path) -> list[str]:
+    fitz = _load_pdf_module()
+    doc = fitz.open(str(pdf_path))
+    try:
+        return [doc.load_page(i).get_text("text") for i in range(doc.page_count)]
+    finally:
+        doc.close()
+
+
+def _persist_knowledge_document(
+    *,
+    db: Session,
+    exam_id: UUID | None,
+    kind: str,
+    source_path: str,
+    content_hash: str,
+    title: str | None,
+    chunks: list[Chunk],
+    force: bool,
+) -> tuple[str, int]:
+    existing = db.query(KnowledgeDocument).filter(KnowledgeDocument.content_hash == content_hash).first()
+    if existing and not force:
+        return "skipped", len(existing.chunks)
+    if existing and force:
+        db.delete(existing)
+        db.flush()
+
+    if not chunks:
+        return "empty", 0
+
+    embeddings = embed_texts([chunk.text for chunk in chunks])
+    settings = get_settings()
+    for embedding in embeddings:
+        if len(embedding) != settings.EMBEDDING_DIMENSION:
+            raise ValueError(
+                f"embedding_dimension_mismatch: got {len(embedding)}, expected {settings.EMBEDDING_DIMENSION}"
+            )
+
+    document = KnowledgeDocument(
+        exam_id=exam_id,
+        kind=kind,
+        source_path=source_path,
+        content_hash=content_hash,
+        title=title,
+        metadata_json={"embedding_model": settings.EMBEDDING_MODEL, "embedding_provider": settings.EMBEDDING_PROVIDER},
+    )
+    db.add(document)
+    db.flush()
+
+    for index, (chunk, embedding) in enumerate(zip(chunks, embeddings, strict=True)):
+        db.add(
+            KnowledgeChunk(
+                document_id=document.id,
+                chunk_index=index,
+                text=chunk.text,
+                latex=chunk.latex,
+                question_id=chunk.question_id,
+                embedding=_vector_literal(embedding),
+                tokens=chunk.tokens,
+                metadata_json=chunk.metadata,
+            )
+        )
+    return "embedded", len(chunks)
 
 
 @celery.task(bind=True, name="process_copy", track_started=True)
@@ -147,6 +223,110 @@ def process_copy(self, copy_id: str, force: bool = False) -> dict:
                 copy.status = CopyStatus.failed.value
                 copy.error_message = f"{type(e).__name__}: {e}"
                 db.add(copy)
+                db.commit()
+        except Exception:
+            pass
+        return {"status": "error", "error": f"{type(e).__name__}: {e}"}
+    finally:
+        db.close()
+
+
+@celery.task(bind=True, name="embed_exam", track_started=True)
+def embed_exam(self, exam_id: str, force: bool = False) -> dict:
+    """Embed exam correction/rubric knowledge into pgvector-backed chunks."""
+    db: Session = SessionLocal()
+    storage = get_storage()
+    try:
+        exam_uuid = UUID(exam_id)
+        exam = db.get(Exam, exam_uuid)
+        if not exam:
+            return {"status": "error", "reason": "exam_not_found"}
+
+        total_chunks = 0
+        statuses: list[dict] = []
+        rubric_questions = (exam.rubric_json or {}).get("questions", [])
+
+        if exam.correction_pdf_path:
+            correction_abs = storage.resolve(exam.correction_pdf_path)
+            correction_bytes = correction_abs.read_bytes()
+            correction_chunks = chunk_correction_pdf(
+                _extract_pdf_text_per_page(correction_abs),
+                rubric_questions,
+            )
+            status, chunks_count = _persist_knowledge_document(
+                db=db,
+                exam_id=exam_uuid,
+                kind="correction",
+                source_path=exam.correction_pdf_path,
+                content_hash=_sha256_bytes(correction_bytes),
+                title="Corrigé",
+                chunks=correction_chunks,
+                force=force,
+            )
+            total_chunks += chunks_count if status == "embedded" else 0
+            statuses.append({"kind": "correction", "status": status, "chunks_count": chunks_count})
+
+        if exam.rubric_json:
+            rubric_bytes = json.dumps(exam.rubric_json, sort_keys=True, ensure_ascii=False).encode("utf-8")
+            rubric_source = exam.rubric_pdf_path or f"exams/{exam_id}/rubric.json"
+            status, chunks_count = _persist_knowledge_document(
+                db=db,
+                exam_id=exam_uuid,
+                kind="rubric",
+                source_path=rubric_source,
+                content_hash=_sha256_bytes(rubric_bytes),
+                title="Barème JSON",
+                chunks=chunk_rubric_json(exam.rubric_json),
+                force=force,
+            )
+            total_chunks += chunks_count if status == "embedded" else 0
+            statuses.append({"kind": "rubric", "status": status, "chunks_count": chunks_count})
+        elif exam.rubric_pdf_path:
+            rubric_abs = storage.resolve(exam.rubric_pdf_path)
+            rubric_bytes = rubric_abs.read_bytes()
+            rubric_text = "\n\n".join(_extract_pdf_text_per_page(rubric_abs))
+            status, chunks_count = _persist_knowledge_document(
+                db=db,
+                exam_id=exam_uuid,
+                kind="rubric",
+                source_path=exam.rubric_pdf_path,
+                content_hash=_sha256_bytes(rubric_bytes),
+                title="Barème PDF",
+                chunks=chunk_generic_pdf(rubric_text),
+                force=force,
+            )
+            total_chunks += chunks_count if status == "embedded" else 0
+            statuses.append({"kind": "rubric", "status": status, "chunks_count": chunks_count})
+
+        overall_status = "embedded" if any(item["status"] == "embedded" for item in statuses) else "skipped"
+        exam.metadata_json = {
+            **(exam.metadata_json or {}),
+            "embedding_status": overall_status,
+            "embedded_at": datetime.now(tz=timezone.utc).isoformat(),
+            "chunks_count": sum(item["chunks_count"] for item in statuses),
+            "embedding_documents": statuses,
+        }
+        db.add(exam)
+        db.commit()
+
+        return {
+            "status": overall_status,
+            "exam_id": exam_id,
+            "chunks_count": total_chunks,
+            "documents": statuses,
+        }
+    except Exception as e:
+        logger.exception("embed_exam failed for exam %s", exam_id)
+        db.rollback()
+        try:
+            exam = db.get(Exam, UUID(exam_id))
+            if exam:
+                exam.metadata_json = {
+                    **(exam.metadata_json or {}),
+                    "embedding_status": "failed",
+                    "embedding_error": f"{type(e).__name__}: {e}",
+                }
+                db.add(exam)
                 db.commit()
         except Exception:
             pass

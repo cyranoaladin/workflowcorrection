@@ -13,7 +13,9 @@ from app.core.storage import StorageError, get_storage
 from app.core.upload_validation import UploadValidationError, validate_pdf_upload
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.exam import Exam
+from app.models.knowledge import KnowledgeDocument
 from app.schemas.exam_schema import ExamCreate, ExamRead, ExamUpdate
+from app.workers.tasks import embed_exam as embed_exam_task
 
 from app.core.database import get_db
 
@@ -161,6 +163,58 @@ def set_rubric_json(
     db.commit()
     db.refresh(exam)
     return exam
+
+
+@router.post("/{exam_id}/embed")
+def launch_exam_embedding(
+    exam_id: UUID,
+    force: bool = False,
+    db: Session = Depends(get_db),
+) -> dict:
+    """Index correction/rubric knowledge for RAG. No embedding runs at upload time."""
+    exam = db.get(Exam, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    result = embed_exam_task.apply_async(args=[str(exam_id)], kwargs={"force": force})
+    if result.ready():
+        payload = result.get()
+        return payload if isinstance(payload, dict) else {"status": "done", "result": payload}
+    return {"status": "queued", "task_id": result.id, "exam_id": str(exam_id)}
+
+
+@router.get("/{exam_id}/knowledge")
+def list_exam_knowledge(exam_id: UUID, db: Session = Depends(get_db)) -> dict:
+    """List indexed RAG documents for an exam."""
+    exam = db.get(Exam, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    documents = (
+        db.query(KnowledgeDocument)
+        .filter(KnowledgeDocument.exam_id == exam_id)
+        .order_by(KnowledgeDocument.created_at.desc())
+        .all()
+    )
+    return {
+        "exam_id": str(exam_id),
+        "embedding_status": (exam.metadata_json or {}).get("embedding_status"),
+        "chunks_count": (exam.metadata_json or {}).get("chunks_count", 0),
+        "documents": [
+            {
+                "id": str(document.id),
+                "kind": document.kind,
+                "source_path": document.source_path,
+                "content_hash": document.content_hash,
+                "title": document.title,
+                "chunks_count": len(document.chunks),
+                "metadata": document.metadata_json,
+                "created_at": document.created_at.isoformat(),
+                "updated_at": document.updated_at.isoformat(),
+            }
+            for document in documents
+        ],
+    }
 
 
 @router.post("/{exam_id}/students/csv")
