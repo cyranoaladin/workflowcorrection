@@ -133,19 +133,24 @@ export function Sidebar() {
               <a href="mailto:support@labomaths.tn" className="flex items-center gap-3 rounded-xl border border-gray-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
                 <Mail className="h-5 w-5 text-indigo-500" />
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">Email</div>
+                  <div className="text-sm font-medium text-gray-900">Contacter le support</div>
                   <div className="text-xs text-gray-500">support@labomaths.tn</div>
                 </div>
                 <ExternalLink className="h-4 w-4 text-gray-300" />
               </a>
-              <a href="https://labomaths.tn" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 rounded-xl border border-gray-200 p-4 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all">
-                <MessageCircle className="h-5 w-5 text-emerald-500" />
-                <div className="flex-1">
-                  <div className="text-sm font-medium text-gray-900">Documentation</div>
-                  <div className="text-xs text-gray-500">Guide d&apos;utilisation en ligne</div>
+              <div className="rounded-xl border border-gray-200 p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <MessageCircle className="h-5 w-5 text-emerald-500" />
+                  <div className="text-sm font-medium text-gray-900">Guide rapide</div>
                 </div>
-                <ExternalLink className="h-4 w-4 text-gray-300" />
-              </a>
+                <ol className="space-y-2 text-xs text-gray-600 list-decimal list-inside">
+                  <li>Créez un examen avec titre, niveau et session</li>
+                  <li>Uploadez le sujet, corrigé et barème (PDF)</li>
+                  <li>Importez les copies des élèves</li>
+                  <li>L&apos;IA corrige automatiquement chaque copie</li>
+                  <li>Validez les notes et consultez le bilan classe</li>
+                </ol>
+              </div>
             </div>
             <div className="mt-4 rounded-xl bg-gray-50 p-3 text-center">
               <p className="text-xs text-gray-500">Version 1.0 · Moteur IA GPT-4.1</p>
