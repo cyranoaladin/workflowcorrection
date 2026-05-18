@@ -1,41 +1,81 @@
 #!/usr/bin/env bash
 # =============================================================
 #  deploy_server.sh — Déploiement complet sur maths.labomaths.tn
-#  À exécuter sur le serveur après connexion SSH :
-#    ssh -i ~/.ssh/<KEY> alaeddine@maths.labomaths.tn
-#    bash /opt/math-correction/scripts/deploy_server.sh
+#
+#  Serveur : Hetzner dédié 88.99.254.59
+#  Reverse proxy : Nginx système
+#  Backend  → 127.0.0.1:8010
+#  Frontend → 127.0.0.1:3011
+#
+#  Usage :
+#    ssh root@88.99.254.59
+#    cd /opt/math-correction && bash scripts/deploy_server.sh
 # =============================================================
 set -euo pipefail
 
 COMPOSE_FILE="docker-compose.labomaths.yml"
 PROJECT_DIR="/opt/math-correction"
 
-echo "=== [1/5] Pull du code depuis GitHub ==="
 cd "$PROJECT_DIR"
-git pull origin main
 
-echo "=== [2/5] Rebuild frontend (no-cache) ==="
+echo "=== [1/6] Pull du code depuis GitHub ==="
+git stash 2>/dev/null || true
+git pull origin main
+git stash pop 2>/dev/null || true
+
+echo "=== [2/6] Regénérer package-lock.json si nécessaire ==="
+docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c \
+  'npm install --package-lock-only 2>&1 | tail -3'
+
+echo "=== [3/6] Rebuild frontend (no-cache) ==="
 docker compose -f "$COMPOSE_FILE" build --no-cache frontend
 
-echo "=== [3/5] Redémarrage du frontend ==="
-docker compose -f "$COMPOSE_FILE" up -d frontend
+echo "=== [4/6] Redémarrage des services ==="
+docker compose -f "$COMPOSE_FILE" up -d
 
-echo "=== [4/5] Mise à jour Caddyfile ==="
-cp "$PROJECT_DIR/Caddyfile.labomaths" /etc/caddy/Caddyfile
-caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy || {
-  echo "ERREUR: Caddyfile invalide — reload annulé"
-  exit 1
+echo "=== [5/6] Vérification Nginx ==="
+nginx -t && systemctl reload nginx || echo "⚠ Nginx reload skipped"
+
+echo "=== [6/6] Tests de santé ==="
+sleep 5
+
+FAIL=0
+check() {
+  local label="$1" url="$2" expect="$3"
+  code=$(curl -sk --max-time 10 -o /dev/null -w "%{http_code}" "$url" 2>/dev/null || echo "000")
+  if [ "$code" = "$expect" ]; then
+    echo "  ✓ $label → $code"
+  else
+    echo "  ✗ $label → $code (attendu $expect)"
+    FAIL=1
+  fi
 }
 
-echo "=== [5/5] Vérification ==="
-sleep 3
+echo ""
+check "Site statique"           "https://maths.labomaths.tn/"                           "200"
+check "/correction/ (auth)"     "https://maths.labomaths.tn/correction/"                "401"
+check "API health"              "https://maths.labomaths.tn/correction/api/health"       "200"
+check "Backend readiness"       "http://127.0.0.1:8010/health/ready"                     "200"
+check "Frontend local"          "http://127.0.0.1:3011/"                                 "200"
 
-echo -n "Port 80  : "; curl -s -o /dev/null -w "%{http_code}" http://maths.labomaths.tn/ || echo "KO"
-echo -n "Port 443 : "; curl -sk -o /dev/null -w "%{http_code}" https://maths.labomaths.tn/ || echo "KO"
-echo -n "/correction/ : "; curl -sk -o /dev/null -w "%{http_code}" https://maths.labomaths.tn/correction/ || echo "KO"
-echo -n "/_next asset  : "; curl -sk -o /dev/null -w "%{http_code}" "https://maths.labomaths.tn/correction/_next/static/chunks/main-app.js" || echo "KO (normal si hash différent)"
-echo -n "API health    : "; curl -sk https://maths.labomaths.tn/correction/api/health | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('status','?'))" 2>/dev/null || echo "KO"
+# Test _next asset MIME type
+CSS_URL=$(curl -s http://127.0.0.1:3011/ | grep -oP '/correction/_next/static/[^"]+\.css' | head -1)
+if [ -n "$CSS_URL" ]; then
+  ctype=$(curl -sk --max-time 5 -o /dev/null -w "%{content_type}" "https://maths.labomaths.tn$CSS_URL" 2>/dev/null)
+  if echo "$ctype" | grep -q "text/css"; then
+    echo "  ✓ CSS MIME type → $ctype"
+  else
+    echo "  ✗ CSS MIME type → $ctype (attendu text/css)"
+    FAIL=1
+  fi
+fi
 
 echo ""
-echo "=== Déploiement terminé ==="
 docker compose -f "$COMPOSE_FILE" ps
+echo ""
+if [ "$FAIL" -eq 0 ]; then
+  echo "✅ Déploiement terminé — tous les tests OK"
+else
+  echo "⚠️  Déploiement terminé — certains tests ont échoué"
+  exit 1
+fi
