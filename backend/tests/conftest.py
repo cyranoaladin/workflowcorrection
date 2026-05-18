@@ -19,6 +19,7 @@ os.environ["MAX_UPLOAD_SIZE_MB"] = "5"
 os.environ["OCR_ENABLE_PAID_CALLS"] = "false"
 os.environ["OCR_MAX_PAGES_PER_JOB"] = "3"
 os.environ["OCR_DEFAULT_IMAGE_TYPE"] = "processed"
+os.environ["OPENAI_API_KEY"] = "sk-test"
 os.environ["ADMIN_API_TOKEN"] = "pytest-admin-token"
 os.environ["PDF_MAX_PAGES"] = "20"
 

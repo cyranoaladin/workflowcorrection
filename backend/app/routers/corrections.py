@@ -19,6 +19,22 @@ from app.services.report_service import build_report
 router = APIRouter(tags=["corrections"])
 
 
+def _to_float(value: object, fallback: float | None = None) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
+def _rubric_total_points(rubric_questions: list[dict]) -> float:
+    return sum(_to_float(q.get("points_max"), 0.0) or 0.0 for q in rubric_questions)
+
+
+def _exam_total_points(exam: Exam | None, rubric_questions: list[dict]) -> float:
+    exam_total = _to_float(exam.total_points if exam else None)
+    return exam_total if exam_total and exam_total > 0 else _rubric_total_points(rubric_questions)
+
+
 # ── POST /copies/{copy_id}/grade ─────────────────────────────────────────────
 @router.post("/copies/{copy_id}/grade")
 def grade_copy(
@@ -101,31 +117,38 @@ def grade_copy(
 
     grading_results: list[dict] = []
     persisted_total = Decimal("0")
+    exam_total_points = _exam_total_points(exam, rubric_questions)
 
     for q in rubric_questions:
         qid = str(q.get("id", "unknown"))
-        q_points_max = float(q.get("points_max", 0))
-        result = grade_question(qid, q, full_transcription)
+        q_points_max = _to_float(q.get("points_max"), 0.0) or 0.0
+        result = grade_question(qid, q, full_transcription) or {}
+        if not isinstance(result, dict):
+            result = {}
+
+        points_max = _to_float(result.get("points_max"), q_points_max) or q_points_max
+        points_awarded = _to_float(result.get("points_awarded"))
+        confidence = _to_float(result.get("confidence"), 0.0) or 0.0
 
         normalized = {
             "question_id": qid,
-            "points_max": result.get("points_max", q_points_max),
-            "points_awarded": result.get("points_awarded"),
-            "confidence": result.get("confidence", 0),
+            "points_max": points_max,
+            "points_awarded": points_awarded,
+            "confidence": confidence,
             "needs_human_review": result.get("needs_human_review", True),
             "justification": result.get("justification", ""),
             "criteria_details": result.get("criteria_details", []),
             "error_message": result.get("error_message"),
-            "status": result.get("status") or "ok",
+            "status": result.get("status") or ("ok" if points_awarded is not None else "error"),
         }
         grading_results.append(normalized)
 
-        if normalized["points_awarded"] is not None:
-            awarded = Decimal(str(normalized["points_awarded"]))
+        if points_awarded is not None:
+            awarded = Decimal(str(points_awarded))
             corr = Correction(
                 copy_id=copy_id,
                 question_id=qid,
-                points_max=Decimal(str(normalized["points_max"])),
+                points_max=Decimal(str(points_max)),
                 points_awarded=awarded,
                 correction_json={
                     "justification": normalized["justification"],
@@ -133,7 +156,7 @@ def grade_copy(
                     "error_message": normalized["error_message"],
                     "status": normalized["status"],
                 },
-                confidence=Decimal(str(normalized["confidence"])),
+                confidence=Decimal(str(confidence)),
                 needs_human_review=normalized["needs_human_review"],
             )
             db.add(corr)
@@ -144,7 +167,7 @@ def grade_copy(
     # Audit
     audit = audit_correction(
         corrections=grading_results,
-        total_points=float(exam.total_points),
+        total_points=exam_total_points,
         rubric_questions=rubric_questions,
     )
 
@@ -158,7 +181,7 @@ def grade_copy(
         "copy_id": str(copy_id),
         "status": "corrected",
         "total_awarded": float(persisted_total),
-        "total_max": float(exam.total_points),
+        "total_max": exam_total_points,
         "questions_graded": len(grading_results),
         "audit": audit,
         "corrections": grading_results,
@@ -207,9 +230,10 @@ def get_report(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
     ]
 
     rubric_questions = (exam.rubric_json or {}).get("questions", []) if exam else []
+    exam_total_points = _exam_total_points(exam, rubric_questions)
     audit = audit_correction(
         corrections=corrections_list,
-        total_points=float(exam.total_points) if exam else 20.0,
+        total_points=exam_total_points,
         rubric_questions=rubric_questions,
     )
 
@@ -218,7 +242,7 @@ def get_report(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
         student_name=copy.student_name,
         copy_code=copy.copy_code,
         exam_title=exam.title if exam else "Examen inconnu",
-        exam_total_points=float(exam.total_points) if exam else 20.0,
+        exam_total_points=exam_total_points,
         corrections=corrections_list,
         audit=audit,
     )
@@ -292,7 +316,8 @@ def get_exam_bilan(exam_id: UUID, db: Session = Depends(get_db)) -> dict:
         }
 
     scores = [float(c.total_score) for c in corrected]
-    total_max = float(exam.total_points)
+    rubric_questions = (exam.rubric_json or {}).get("questions", [])
+    total_max = _exam_total_points(exam, rubric_questions)
 
     scores_20 = [round(s / total_max * 20, 2) for s in scores]
 
@@ -353,4 +378,3 @@ def get_exam_bilan(exam_id: UUID, db: Session = Depends(get_db)) -> dict:
         "distribution_over_20": distribution,
         "students": students,
     }
-
