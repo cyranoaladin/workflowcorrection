@@ -57,7 +57,7 @@ export function TopBar() {
           </button>
 
           {showNotifs && (
-            <div className="absolute right-0 top-full mt-2 w-80 rounded-xl border border-gray-200 bg-white shadow-xl z-[100] overflow-hidden" style={{ transform: 'translateX(40px)' }}>
+            <div className="fixed top-[72px] right-[80px] w-80 rounded-xl border border-gray-200 bg-white shadow-xl z-[9999] overflow-hidden">
               <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                 <h3 className="text-sm font-semibold text-gray-900">Notifications</h3>
                 <button onClick={() => setShowNotifs(false)} className="rounded p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
