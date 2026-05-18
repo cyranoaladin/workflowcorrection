@@ -24,9 +24,9 @@ class Settings(BaseSettings):
     )
 
     # Redis / Celery
-    REDIS_URL: str = "redis://redis:6379/0"
-    CELERY_BROKER_URL: str = "redis://redis:6379/0"
-    CELERY_RESULT_BACKEND: str = "redis://redis:6379/1"
+    REDIS_URL: str = "redis://localhost:6379/0"
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/1"
 
     # Storage
     STORAGE_BACKEND: str = "local"
