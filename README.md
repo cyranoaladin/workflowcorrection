@@ -37,9 +37,20 @@ Les briques IA (**Mathpix / Azure Document Intelligence / OpenAI**) sont **prés
   - `POST /copies/{copy_id}/ocr` (max `OCR_MAX_PAGES_PER_JOB`)
 - **Sécurité**: `OCR_ENABLE_PAID_CALLS=false` par défaut → aucun appel Mathpix/Azure/OpenAI ne part.
 
-**Phase 3 (à compléter)**:
+**Phase 3 (implémenté)**:
 - structuration par question
 - correction par barème + audit + rapport JSON complet
+- validation humaine des notes
+
+**Phase 4 — RAG (implémenté)**:
+- Extension `pgvector` pour recherche vectorielle
+- Tables `knowledge_documents` + `knowledge_chunks` avec embeddings HNSW
+- Service d'embedding (OpenAI `text-embedding-3-small` ou TEI auto-hébergé)
+- Chunking intelligent : par question (corrigé/barème), par paragraphe (docs génériques), LaTeX-aware
+- Task Celery `embed_exam` : indexation idempotente des documents d'un examen
+- Service RAG `retrieve()` : recherche par similarité cosinus avec filtrage par exam/question/kind
+- Endpoints : `POST /exams/{id}/embed`, `GET /exams/{id}/knowledge`
+- Garde-fou : aucun embedding automatique à l'upload, uniquement sur appel explicite
 
 ## Structure
 

@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.core.logging_config import configure_logging
 from app.core.security import require_admin
 from app.core.storage import get_storage
-from app.routers import copies, corrections, exams, health, integrations, pages
+from app.routers import copies, corrections, exams, health, integrations, knowledge, pages
 
 configure_logging()
 settings = get_settings()
@@ -42,3 +42,4 @@ app.include_router(exams.router, dependencies=protected)
 app.include_router(copies.router, dependencies=protected)
 app.include_router(pages.router, dependencies=protected)
 app.include_router(corrections.router, dependencies=protected)
+app.include_router(knowledge.router, dependencies=protected)

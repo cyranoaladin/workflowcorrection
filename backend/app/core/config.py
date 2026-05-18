@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
+from typing import List, Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     OCR_MAX_PAGES_PER_JOB: int = 3
     OCR_ENABLE_PAID_CALLS: bool = False
     OCR_DEFAULT_IMAGE_TYPE: str = "processed"
+
+    # Embeddings / RAG
+    EMBEDDING_PROVIDER: Literal["openai", "tei"] = "openai"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSION: int = 1536
+    TEI_ENDPOINT: str = ""
+    RAG_TOP_K: int = 5
+    RAG_MIN_SCORE: float = 0.35
 
     # Security (future)
     ADMIN_API_TOKEN: str = ""
