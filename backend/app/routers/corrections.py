@@ -97,20 +97,23 @@ def grade_copy(
     # Delete previous corrections if force
     if force:
         db.query(Correction).filter(Correction.copy_id == copy_id).delete(synchronize_session=False)
-        db.commit()
+        db.flush()
 
     grading_results: list[dict] = []
+    persisted_total = Decimal("0")
+
     for q in rubric_questions:
         qid = str(q.get("id", "unknown"))
         result = grade_question(qid, q, full_transcription)
         grading_results.append(result)
 
         if result.get("status", "ok") == "ok" and result.get("points_awarded") is not None:
+            awarded = Decimal(str(result["points_awarded"]))
             corr = Correction(
                 copy_id=copy_id,
                 question_id=qid,
                 points_max=Decimal(str(result["points_max"])),
-                points_awarded=Decimal(str(result["points_awarded"])),
+                points_awarded=awarded,
                 correction_json={
                     "justification": result.get("justification", ""),
                     "criteria_details": result.get("criteria_details", []),
@@ -120,6 +123,7 @@ def grade_copy(
                 needs_human_review=result.get("needs_human_review", True),
             )
             db.add(corr)
+            persisted_total += awarded
 
     db.flush()
 
@@ -130,13 +134,7 @@ def grade_copy(
         rubric_questions=rubric_questions,
     )
 
-    # Compute total score
-    total_awarded = sum(
-        float(r["points_awarded"])
-        for r in grading_results
-        if r.get("status", "ok") == "ok" and r.get("points_awarded") is not None
-    )
-    copy.total_score = Decimal(str(total_awarded))
+    copy.total_score = persisted_total
     copy.confidence = Decimal(str(audit.get("overall_confidence", 0)))
     copy.status = CopyStatus.corrected.value
     db.add(copy)
@@ -145,7 +143,7 @@ def grade_copy(
     return {
         "copy_id": str(copy_id),
         "status": "corrected",
-        "total_awarded": total_awarded,
+        "total_awarded": float(persisted_total),
         "total_max": float(exam.total_points),
         "questions_graded": len(grading_results),
         "audit": audit,
@@ -216,7 +214,7 @@ def get_report(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
 @router.patch("/corrections/{correction_id}/validate", response_model=CorrectionRead)
 def validate_correction(
     correction_id: UUID,
-    points_awarded: float | None = Query(default=None),
+    points_awarded: str | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> Correction:
     """Human validation of a graded question (optionally override score)."""
@@ -225,17 +223,22 @@ def validate_correction(
         raise HTTPException(status_code=404, detail="Correction not found")
 
     if points_awarded is not None:
-        if points_awarded < 0:
+        try:
+            parsed_points = float(points_awarded)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=400, detail="points_awarded must be a number")
+
+        if parsed_points < 0:
             raise HTTPException(
                 status_code=400,
-                detail=f"points_awarded ({points_awarded}) must be >= 0",
+                detail=f"points_awarded ({parsed_points}) must be >= 0",
             )
-        if points_awarded > float(corr.points_max):
+        if parsed_points > float(corr.points_max):
             raise HTTPException(
                 status_code=400,
-                detail=f"points_awarded ({points_awarded}) exceeds points_max ({corr.points_max})",
+                detail=f"points_awarded ({parsed_points}) exceeds points_max ({corr.points_max})",
             )
-        corr.points_awarded = Decimal(str(points_awarded))
+        corr.points_awarded = Decimal(str(parsed_points))
 
     corr.validated_by_human = True
     corr.needs_human_review = False
