@@ -116,11 +116,11 @@ def grade_copy(
             "justification": result.get("justification", ""),
             "criteria_details": result.get("criteria_details", []),
             "error_message": result.get("error_message"),
-            "status": result.get("status", "ok"),
+            "status": result.get("status") or "ok",
         }
         grading_results.append(normalized)
 
-        if normalized["status"] == "ok" and normalized["points_awarded"] is not None:
+        if normalized["points_awarded"] is not None:
             awarded = Decimal(str(normalized["points_awarded"]))
             corr = Correction(
                 copy_id=copy_id,
@@ -131,6 +131,7 @@ def grade_copy(
                     "justification": normalized["justification"],
                     "criteria_details": normalized["criteria_details"],
                     "error_message": normalized["error_message"],
+                    "status": normalized["status"],
                 },
                 confidence=Decimal(str(normalized["confidence"])),
                 needs_human_review=normalized["needs_human_review"],
