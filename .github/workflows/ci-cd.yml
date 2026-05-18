@@ -55,6 +55,14 @@ jobs:
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
 
+      - name: Run database migrations
+        working-directory: backend
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+          APP_ENV: test
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
+        run: alembic upgrade head
+
       - name: Run tests
         working-directory: backend
         env:
