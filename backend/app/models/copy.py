@@ -35,8 +35,8 @@ class StudentCopy(TimestampMixin, Base):
     status: Mapped[str] = mapped_column(Text, nullable=False, default=CopyStatus.uploaded.value)
     processing_task_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    total_score: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
-    confidence: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    total_score: Mapped[Decimal | None] = mapped_column(Numeric(8, 3), nullable=True)
+    confidence: Mapped[Decimal | None] = mapped_column(Numeric(8, 3), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     exam: Mapped["Exam"] = relationship(back_populates="copies")

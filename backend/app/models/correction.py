@@ -18,12 +18,12 @@ class Correction(TimestampMixin, Base):
     copy_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("student_copies.id", ondelete="CASCADE"))
 
     question_id: Mapped[str] = mapped_column(Text, nullable=False)
-    points_max: Mapped[Decimal] = mapped_column(Numeric, nullable=False)
-    points_awarded: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    points_max: Mapped[Decimal] = mapped_column(Numeric(8, 3), nullable=False)
+    points_awarded: Mapped[Decimal | None] = mapped_column(Numeric(8, 3), nullable=True)
 
     correction_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
 
-    confidence: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    confidence: Mapped[Decimal | None] = mapped_column(Numeric(8, 3), nullable=True)
     needs_human_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     validated_by_human: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
@@ -31,4 +31,3 @@ class Correction(TimestampMixin, Base):
 
 
 from app.models.copy import StudentCopy  # noqa: E402
-

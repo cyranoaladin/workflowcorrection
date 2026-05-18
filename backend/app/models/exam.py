@@ -25,10 +25,16 @@ class Exam(TimestampMixin, Base):
     correction_pdf_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     rubric_pdf_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     rubric_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, nullable=False, default=dict)
 
     total_points: Mapped[Decimal] = mapped_column(Numeric, nullable=False, server_default="20")
 
     copies: Mapped[list["StudentCopy"]] = relationship(back_populates="exam", cascade="all, delete-orphan")
+    knowledge_documents: Mapped[list["KnowledgeDocument"]] = relationship(
+        back_populates="exam",
+        cascade="all, delete-orphan",
+    )
 
 
 from app.models.copy import StudentCopy  # noqa: E402  (circular for typing)
+from app.models.knowledge import KnowledgeDocument  # noqa: E402
