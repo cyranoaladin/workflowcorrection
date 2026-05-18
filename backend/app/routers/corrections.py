@@ -121,7 +121,7 @@ def grade_copy(
             )
             db.add(corr)
 
-    db.commit()
+    db.flush()
 
     # Audit
     audit = audit_correction(
@@ -216,7 +216,7 @@ def get_report(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
 @router.patch("/corrections/{correction_id}/validate", response_model=CorrectionRead)
 def validate_correction(
     correction_id: UUID,
-    points_awarded: float | None = Query(default=None, ge=0),
+    points_awarded: float | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> Correction:
     """Human validation of a graded question (optionally override score)."""
@@ -225,6 +225,11 @@ def validate_correction(
         raise HTTPException(status_code=404, detail="Correction not found")
 
     if points_awarded is not None:
+        if points_awarded < 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"points_awarded ({points_awarded}) must be >= 0",
+            )
         if points_awarded > float(corr.points_max):
             raise HTTPException(
                 status_code=400,
