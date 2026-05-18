@@ -1,6 +1,6 @@
 import "./globals.css";
-import Link from "next/link";
-import { ApiHealthBadge } from "@/components/ApiHealthBadge";
+import { Sidebar } from "@/components/Sidebar";
+import { TopBar } from "@/components/TopBar";
 
 export const metadata = {
   title: "LaboCorriger · Correction IA",
@@ -11,8 +11,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <head>
-        {/* Unregister any Service Worker from the parent site (maths.labomaths.tn)
-            that may intercept /correction/* requests and serve stale HTML assets */}
         <script dangerouslySetInnerHTML={{ __html: `
           if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -24,53 +22,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }
         `}} />
       </head>
-      <body className="min-h-screen bg-slate-50">
-        {/* ── Topbar ─────────────────────────────────────────────── */}
-        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur-sm shadow-sm">
-          <div className="mx-auto flex max-w-6xl items-center justify-between px-4 sm:px-6 h-14">
+      <body className="min-h-screen bg-gray-50/80">
+        <div className="flex h-screen overflow-hidden">
+          {/* Sidebar */}
+          <Sidebar />
 
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-600 to-indigo-500 shadow-sm group-hover:shadow-indigo-200 transition-shadow">
-                <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
+          {/* Main area */}
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <TopBar />
+            <main className="flex-1 overflow-y-auto">
+              <div className="mx-auto max-w-[1400px] px-6 py-8 animate-in">
+                {children}
               </div>
-              <span className="font-bold text-slate-900 tracking-tight">LaboCorriger</span>
-            </Link>
-
-            {/* Nav */}
-            <nav className="flex items-center gap-1">
-              <Link
-                href="/"
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-              >
-                Tableau de bord
-              </Link>
-              <Link
-                href="/exams"
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-              >
-                Examens
-              </Link>
-            </nav>
-
-            {/* Right side */}
-            <div className="flex items-center gap-3">
-              <ApiHealthBadge />
-            </div>
+            </main>
           </div>
-        </header>
-
-        {/* ── Main content ───────────────────────────────────────── */}
-        <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 animate-fade-in">
-          {children}
-        </main>
-
-        {/* ── Footer ─────────────────────────────────────────────── */}
-        <footer className="mt-16 border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
-          LaboCorriger · Correction assistée par IA · maths.labomaths.tn
-        </footer>
+        </div>
       </body>
     </html>
   );

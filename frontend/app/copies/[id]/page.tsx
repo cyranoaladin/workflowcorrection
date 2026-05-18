@@ -161,7 +161,7 @@ export default function CopyDetailPage() {
 
   if (!copy) {
     return (
-      <div className="flex items-center justify-center py-24 text-slate-400">
+      <div className="flex items-center justify-center py-24 text-gray-400">
         <Loader2 className="mr-2 h-5 w-5 animate-spin" /> Chargement…
       </div>
     );
@@ -171,24 +171,24 @@ export default function CopyDetailPage() {
   const isCorrected = copy.status === "corrected";
 
   return (
-    <div className="space-y-6 animate-slide-up">
+    <div className="space-y-6">
 
       {/* Breadcrumb */}
       <div>
         <Link
           href={`/exams/${copy.exam_id}`}
-          className="mb-3 inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors"
+          className="mb-3 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors"
         >
           <ChevronLeft className="h-4 w-4" /> Retour à l&apos;examen
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">
-              {copy.student_name ?? <span className="italic text-slate-400">Élève non renseigné</span>}
+            <h1 className="text-xl font-bold text-gray-900 tracking-tight">
+              {copy.student_name ?? <span className="italic text-gray-400">Élève non renseigné</span>}
             </h1>
             <div className="mt-1 flex flex-wrap items-center gap-2">
               {copy.copy_code && (
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-500">{copy.copy_code}</span>
+                <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs text-gray-500">{copy.copy_code}</span>
               )}
               <StatusBadge status={copy.status} />
             </div>
@@ -203,13 +203,13 @@ export default function CopyDetailPage() {
       )}
 
       {/* Actions card */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+      <div className="card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <div className="text-sm font-semibold text-slate-700">Traitement &amp; correction</div>
-            <div className="text-xs text-slate-500">
+            <div className="text-sm font-semibold text-gray-700">Traitement &amp; correction</div>
+            <div className="text-xs text-gray-500">
               {status ? (
-                <span>Statut&nbsp;: <span className="font-medium text-slate-700">{status.status}</span> · Tâche&nbsp;: <span className="font-mono">{status.task_state ?? "n/a"}</span></span>
+                <span>Statut&nbsp;: <span className="font-medium text-gray-700">{status.status}</span> · Tâche&nbsp;: <span className="font-mono">{status.task_state ?? "n/a"}</span></span>
               ) : "—"}
             </div>
             {copy.error_message && (
@@ -262,15 +262,15 @@ export default function CopyDetailPage() {
         <div className="space-y-4">
 
           {/* Score hero */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-card">
+          <div className="card p-6">
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
-                <div className="text-sm text-slate-500">{report.exam.title}</div>
+                <div className="text-sm text-gray-500">{report.exam.title}</div>
                 <div className="mt-2 flex items-end gap-3">
-                  <span className="text-5xl font-extrabold text-slate-900">{report.score.grade_over_20}</span>
-                  <span className="mb-1 text-xl text-slate-400">/ 20</span>
+                  <span className="text-5xl font-extrabold text-gray-900">{report.score.grade_over_20}</span>
+                  <span className="mb-1 text-xl text-gray-400">/ 20</span>
                 </div>
-                <div className="mt-1 text-sm text-slate-500">
+                <div className="mt-1 text-sm text-gray-500">
                   {report.score.total_awarded} / {report.score.total_max} pts ({report.score.percentage}%)
                 </div>
               </div>
@@ -317,11 +317,11 @@ export default function CopyDetailPage() {
           </div>
 
           {/* Questions */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-card overflow-hidden">
-            <div className="border-b border-slate-100 px-5 py-4">
-              <h2 className="text-sm font-semibold text-slate-700">Détail par question</h2>
+          <div className="card overflow-hidden">
+            <div className="border-b border-gray-100 px-5 py-4">
+              <h2 className="text-base font-semibold text-gray-900">Détail par question</h2>
             </div>
-            <div className="divide-y divide-slate-100">
+            <div className="divide-y divide-gray-100">
               {report.questions.map((q) => (
                 <QuestionCard
                   key={q.question_id}

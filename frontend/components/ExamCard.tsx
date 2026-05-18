@@ -1,53 +1,38 @@
 "use client";
-
 import Link from "next/link";
-import { ArrowRight, BookOpen, FileText, CheckCircle2 } from "lucide-react";
+import { BookOpen, Calendar, ChevronRight, FileStack } from "lucide-react";
 import type { Exam } from "@/lib/types";
+import { formatRelative } from "@/lib/utils";
 
 export function ExamCard({ exam }: { exam: Exam }) {
-  const hasRubric = !!(exam.rubric_json as any)?.questions?.length;
-  const hasPdfs = !!(exam.subject_pdf_path || exam.correction_pdf_path);
-
   return (
     <Link
       href={`/exams/${exam.id}`}
-      className="group block rounded-xl border border-slate-200 bg-white p-5 shadow-card hover:shadow-card-hover hover:border-indigo-200 transition-all duration-200"
+      className="group flex items-center gap-4 rounded-xl border border-gray-200/80 bg-white p-4 hover:shadow-md hover:border-gray-300/80 transition-all duration-200"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3 min-w-0">
-          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
-            <BookOpen className="h-4 w-4" />
-          </div>
-          <div className="min-w-0">
-            <div className="font-semibold text-slate-900 truncate">{exam.title}</div>
-            <div className="mt-0.5 flex items-center gap-2 text-sm text-slate-500">
-              {exam.level && <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-xs font-medium">{exam.level}</span>}
-              {exam.session && <span className="text-slate-400">{exam.session}</span>}
-              {!exam.level && !exam.session && <span className="italic text-slate-400">Niveau/session non renseigné</span>}
-            </div>
-          </div>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+        <BookOpen className="h-5 w-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-gray-900 truncate">{exam.title}</span>
+          {exam.level && (
+            <span className="badge bg-indigo-50 text-indigo-600 shrink-0">{exam.level}</span>
+          )}
         </div>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2">
-            {hasPdfs && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                <FileText className="h-3 w-3" /> PDF
-              </span>
-            )}
-            {hasRubric && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
-                <CheckCircle2 className="h-3 w-3" /> Barème
-              </span>
-            )}
-          </div>
-          <ArrowRight className="h-4 w-4 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:text-indigo-500" />
+        <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
+          {exam.session && <span className="font-medium">{exam.session}</span>}
+          <span className="flex items-center gap-1">
+            <Calendar className="h-3 w-3" />
+            {formatRelative(exam.created_at)}
+          </span>
+          <span className="flex items-center gap-1">
+            <FileStack className="h-3 w-3" />
+            {exam.total_points} pts
+          </span>
         </div>
       </div>
-
-      <div className="mt-3 text-xs text-slate-400">
-        Créé le {new Date(exam.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-      </div>
+      <ChevronRight className="h-4 w-4 text-gray-300 group-hover:text-indigo-500 transition-colors" />
     </Link>
   );
 }
