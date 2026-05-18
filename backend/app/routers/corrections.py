@@ -104,23 +104,36 @@ def grade_copy(
 
     for q in rubric_questions:
         qid = str(q.get("id", "unknown"))
+        q_points_max = float(q.get("points_max", 0))
         result = grade_question(qid, q, full_transcription)
-        grading_results.append(result)
 
-        if result.get("status", "ok") == "ok" and result.get("points_awarded") is not None:
-            awarded = Decimal(str(result["points_awarded"]))
+        normalized = {
+            "question_id": qid,
+            "points_max": result.get("points_max", q_points_max),
+            "points_awarded": result.get("points_awarded"),
+            "confidence": result.get("confidence", 0),
+            "needs_human_review": result.get("needs_human_review", True),
+            "justification": result.get("justification", ""),
+            "criteria_details": result.get("criteria_details", []),
+            "error_message": result.get("error_message"),
+            "status": result.get("status", "ok"),
+        }
+        grading_results.append(normalized)
+
+        if normalized["status"] == "ok" and normalized["points_awarded"] is not None:
+            awarded = Decimal(str(normalized["points_awarded"]))
             corr = Correction(
                 copy_id=copy_id,
                 question_id=qid,
-                points_max=Decimal(str(result["points_max"])),
+                points_max=Decimal(str(normalized["points_max"])),
                 points_awarded=awarded,
                 correction_json={
-                    "justification": result.get("justification", ""),
-                    "criteria_details": result.get("criteria_details", []),
-                    "error_message": result.get("error_message"),
+                    "justification": normalized["justification"],
+                    "criteria_details": normalized["criteria_details"],
+                    "error_message": normalized["error_message"],
                 },
-                confidence=Decimal(str(result.get("confidence", 0))),
-                needs_human_review=result.get("needs_human_review", True),
+                confidence=Decimal(str(normalized["confidence"])),
+                needs_human_review=normalized["needs_human_review"],
             )
             db.add(corr)
             persisted_total += awarded
