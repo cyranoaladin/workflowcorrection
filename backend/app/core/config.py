@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List
+from typing import List, Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -52,6 +52,14 @@ class Settings(BaseSettings):
     OPENAI_GRADING_MODEL: str = "gpt-4.1"
     OPENAI_AUDIT_MODEL: str = "gpt-4.1"
 
+    # RAG / embeddings
+    EMBEDDING_PROVIDER: Literal["openai", "tei"] = "openai"
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    EMBEDDING_DIMENSION: int = 1536
+    TEI_ENDPOINT: str = ""
+    RAG_TOP_K: int = 5
+    RAG_MIN_SCORE: float = 0.35
+
     # OCR safety
     OCR_MAX_PAGES_PER_JOB: int = 3
     OCR_ENABLE_PAID_CALLS: bool = False
@@ -96,6 +104,10 @@ class Settings(BaseSettings):
         unsafe_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD, min_len=16)
         if "change_me" in self.DATABASE_URL.lower() or "replace_with" in self.DATABASE_URL.lower():
             problems.append("DATABASE_URL")
+        if self.EMBEDDING_PROVIDER == "openai":
+            unsafe_secret("OPENAI_API_KEY", self.OPENAI_API_KEY, min_len=16)
+        if self.EMBEDDING_PROVIDER == "tei" and not self.TEI_ENDPOINT.strip():
+            problems.append("TEI_ENDPOINT")
         if any(origin.startswith("http://") or "localhost" in origin or "127.0.0.1" in origin for origin in self.cors_allowed_origins):
             problems.append("CORS_ALLOWED_ORIGINS")
         if self.PUBLIC_API_BASE_URL.startswith("http://") or "localhost" in self.PUBLIC_API_BASE_URL:
