@@ -105,7 +105,7 @@ def grade_copy(
         result = grade_question(qid, q, full_transcription)
         grading_results.append(result)
 
-        if result.get("status") == "ok" and result.get("points_awarded") is not None:
+        if result.get("status", "ok") == "ok" and result.get("points_awarded") is not None:
             corr = Correction(
                 copy_id=copy_id,
                 question_id=qid,
@@ -134,7 +134,7 @@ def grade_copy(
     total_awarded = sum(
         float(r["points_awarded"])
         for r in grading_results
-        if r.get("status") == "ok" and r.get("points_awarded") is not None
+        if r.get("status", "ok") == "ok" and r.get("points_awarded") is not None
     )
     copy.total_score = Decimal(str(total_awarded))
     copy.confidence = Decimal(str(audit.get("overall_confidence", 0)))
