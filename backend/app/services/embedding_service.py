@@ -34,11 +34,20 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         return []
 
     if settings.EMBEDDING_PROVIDER == "openai":
-        return _embed_openai(texts, settings.EMBEDDING_MODEL, settings.EMBEDDING_DIMENSION)
+        embeddings = _embed_openai(texts, settings.EMBEDDING_MODEL, settings.EMBEDDING_DIMENSION)
     elif settings.EMBEDDING_PROVIDER == "tei":
-        return _embed_tei(texts, settings.TEI_ENDPOINT)
+        embeddings = _embed_tei(texts, settings.TEI_ENDPOINT)
     else:
         raise ValueError(f"Unknown EMBEDDING_PROVIDER: {settings.EMBEDDING_PROVIDER}")
+
+    expected = settings.EMBEDDING_DIMENSION
+    for index, embedding in enumerate(embeddings):
+        if len(embedding) != expected:
+            raise ValueError(
+                f"embedding_dimension_mismatch: provider returned dim={len(embedding)} "
+                f"but EMBEDDING_DIMENSION={expected} (chunk #{index})"
+            )
+    return embeddings
 
 
 def _embed_openai(texts: list[str], model: str, dimensions: int) -> list[list[float]]:

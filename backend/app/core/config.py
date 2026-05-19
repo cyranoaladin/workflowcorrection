@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     TEI_ENDPOINT: str = ""
     RAG_TOP_K: int = 5
     RAG_MIN_SCORE: float = 0.35
+    RAG_PROVIDER: Literal["http", "pgvector"] = "http"
+    RAG_HTTP_BASE_URL: str = ""
+    RAG_HTTP_AUTH_HEADER: str = "Authorization"
+    RAG_HTTP_API_TOKEN: str = ""
+    RAG_HTTP_COLLECTION: str = "rag_math_correction"
+    RAG_HTTP_TIMEOUT_SECONDS: float = 30.0
 
     # Security (future)
     ADMIN_API_TOKEN: str = ""
@@ -108,6 +114,10 @@ class Settings(BaseSettings):
             problems.append("CORS_ALLOWED_ORIGINS")
         if self.PUBLIC_API_BASE_URL.startswith("http://") or "localhost" in self.PUBLIC_API_BASE_URL:
             problems.append("PUBLIC_API_BASE_URL")
+        if self.RAG_PROVIDER == "http":
+            unsafe_secret("RAG_HTTP_API_TOKEN", self.RAG_HTTP_API_TOKEN, min_len=16)
+            if not self.RAG_HTTP_BASE_URL.startswith("https://"):
+                problems.append("RAG_HTTP_BASE_URL")
 
         if problems:
             unique = ", ".join(sorted(set(problems)))
