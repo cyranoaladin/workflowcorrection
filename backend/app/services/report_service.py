@@ -20,7 +20,11 @@ def build_report(
 
     Returns a structured dict suitable for API response and PDF generation.
     """
-    graded = [c for c in corrections if c.get("status") == "ok" and c.get("points_awarded") is not None]
+    graded = [
+        c
+        for c in corrections
+        if c.get("status") == "ok" and c.get("points_awarded") is not None
+    ]
     errors = [c for c in corrections if c.get("status") == "error"]
 
     total_awarded = sum(float(c["points_awarded"]) for c in graded)
@@ -91,4 +95,3 @@ def _compute_mention(percentage: float) -> str:
     if percentage >= 50:
         return "Passable"
     return "Insuffisant"
-

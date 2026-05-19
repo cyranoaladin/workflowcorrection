@@ -18,7 +18,9 @@ def validate_pdf_upload(upload: UploadFile) -> None:
     content_type = (upload.content_type or "").strip().lower()
     allowed_types = {"application/pdf", "", "application/octet-stream"}
     if content_type not in allowed_types:
-        raise UploadValidationError("invalid_mime_type", f"Unsupported content-type: {content_type}")
+        raise UploadValidationError(
+            "invalid_mime_type", f"Unsupported content-type: {content_type}"
+        )
 
     # Basic signature check: PDF header marker should appear near the beginning.
     try:
@@ -30,4 +32,3 @@ def validate_pdf_upload(upload: UploadFile) -> None:
 
     if b"%PDF-" not in head:
         raise UploadValidationError("invalid_pdf", "File does not look like a PDF")
-

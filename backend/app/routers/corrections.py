@@ -32,14 +32,20 @@ def _rubric_total_points(rubric_questions: list[dict]) -> float:
 
 def _exam_total_points(exam: Exam | None, rubric_questions: list[dict]) -> float:
     exam_total = _to_float(exam.total_points if exam else None)
-    return exam_total if exam_total and exam_total > 0 else _rubric_total_points(rubric_questions)
+    return (
+        exam_total
+        if exam_total and exam_total > 0
+        else _rubric_total_points(rubric_questions)
+    )
 
 
 # ── POST /copies/{copy_id}/grade ─────────────────────────────────────────────
 @router.post("/copies/{copy_id}/grade")
 def grade_copy(
     copy_id: UUID,
-    force: bool = Query(default=False, description="Re-grade even if already corrected"),
+    force: bool = Query(
+        default=False, description="Re-grade even if already corrected"
+    ),
     db: Session = Depends(get_db),
 ) -> dict:
     """
@@ -61,7 +67,11 @@ def grade_copy(
             "message": "Copy already graded. Use force=true to re-grade.",
         }
 
-    if copy.status not in (CopyStatus.processed_pages.value, CopyStatus.corrected.value, CopyStatus.ocr_pending.value):
+    if copy.status not in (
+        CopyStatus.processed_pages.value,
+        CopyStatus.corrected.value,
+        CopyStatus.ocr_pending.value,
+    ):
         raise HTTPException(
             status_code=409,
             detail={
@@ -112,7 +122,9 @@ def grade_copy(
 
     # Delete previous corrections if force
     if force:
-        db.query(Correction).filter(Correction.copy_id == copy_id).delete(synchronize_session=False)
+        db.query(Correction).filter(Correction.copy_id == copy_id).delete(
+            synchronize_session=False
+        )
         db.flush()
 
     grading_results: list[dict] = []
@@ -139,7 +151,8 @@ def grade_copy(
             "justification": result.get("justification", ""),
             "criteria_details": result.get("criteria_details", []),
             "error_message": result.get("error_message"),
-            "status": result.get("status") or ("ok" if points_awarded is not None else "error"),
+            "status": result.get("status")
+            or ("ok" if points_awarded is not None else "error"),
         }
         grading_results.append(normalized)
 
@@ -218,7 +231,9 @@ def get_report(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
             "id": str(c.id),
             "question_id": c.question_id,
             "points_max": float(c.points_max),
-            "points_awarded": float(c.points_awarded) if c.points_awarded is not None else None,
+            "points_awarded": float(c.points_awarded)
+            if c.points_awarded is not None
+            else None,
             "confidence": float(c.confidence) if c.confidence is not None else None,
             "needs_human_review": c.needs_human_review,
             "validated_by_human": c.validated_by_human,
@@ -264,7 +279,9 @@ def validate_correction(
         try:
             parsed_points = float(points_awarded)
         except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="points_awarded must be a number")
+            raise HTTPException(
+                status_code=400, detail="points_awarded must be a number"
+            )
 
         if parsed_points < 0:
             raise HTTPException(
@@ -284,7 +301,9 @@ def validate_correction(
 
     # Recompute copy total score
     all_corr = db.query(Correction).filter(Correction.copy_id == corr.copy_id).all()
-    new_total = sum(float(c.points_awarded) for c in all_corr if c.points_awarded is not None)
+    new_total = sum(
+        float(c.points_awarded) for c in all_corr if c.points_awarded is not None
+    )
     copy = db.get(StudentCopy, corr.copy_id)
     if copy:
         copy.total_score = Decimal(str(new_total))
@@ -304,7 +323,11 @@ def get_exam_bilan(exam_id: UUID, db: Session = Depends(get_db)) -> dict:
         raise HTTPException(status_code=404, detail="Exam not found")
 
     copies = db.query(StudentCopy).filter(StudentCopy.exam_id == exam_id).all()
-    corrected = [c for c in copies if c.status == CopyStatus.corrected.value and c.total_score is not None]
+    corrected = [
+        c
+        for c in copies
+        if c.status == CopyStatus.corrected.value and c.total_score is not None
+    ]
 
     if not corrected:
         return {
@@ -352,7 +375,9 @@ def get_exam_bilan(exam_id: UUID, db: Session = Depends(get_db)) -> dict:
                 "score_over_20": round(float(c.total_score) / total_max * 20, 2),
                 "needs_human_review": any(
                     corr.needs_human_review
-                    for corr in db.query(Correction).filter(Correction.copy_id == c.id).all()
+                    for corr in db.query(Correction)
+                    .filter(Correction.copy_id == c.id)
+                    .all()
                 ),
             }
             for c in corrected

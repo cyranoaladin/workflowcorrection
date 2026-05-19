@@ -4,7 +4,9 @@ from uuid import UUID
 
 
 def test_create_and_list_exams(client, unique_title, cleanup_ids):
-    r = client.post("/exams", json={"title": unique_title, "level": "test", "session": "2026"})
+    r = client.post(
+        "/exams", json={"title": unique_title, "level": "test", "session": "2026"}
+    )
     assert r.status_code == 200
     exam = r.json()
     exam_id = UUID(exam["id"])
@@ -19,4 +21,3 @@ def test_create_and_list_exams(client, unique_title, cleanup_ids):
 def test_get_exam_not_found(client):
     r = client.get("/exams/00000000-0000-0000-0000-000000000000")
     assert r.status_code == 404
-

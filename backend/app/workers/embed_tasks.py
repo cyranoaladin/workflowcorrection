@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 import uuid
 
 from celery.utils.log import get_task_logger
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.storage import get_storage
 from app.models.exam import Exam
@@ -47,7 +45,6 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
             return {"status": "error", "message": "Exam not found"}
 
         storage = get_storage()
-        settings = get_settings()
         total_chunks = 0
 
         # 1. Embed rubric JSON if available
@@ -56,8 +53,12 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
             if force or not _doc_exists(db, exam_id=exam.id, content_hash=rubric_hash):
                 chunks = chunk_rubric_json(exam.rubric_json)
                 total_chunks += _persist_chunks(
-                    db, chunks, exam_id=exam.id, kind="rubric",
-                    source_path="rubric_json", content_hash=rubric_hash,
+                    db,
+                    chunks,
+                    exam_id=exam.id,
+                    kind="rubric",
+                    source_path="rubric_json",
+                    content_hash=rubric_hash,
                     title=f"Barème - {exam.title}",
                     force=force,
                 )
@@ -71,8 +72,12 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                 rubric_questions = (exam.rubric_json or {}).get("questions", [])
                 chunks = chunk_correction_pdf(text_per_page, rubric_questions)
                 total_chunks += _persist_chunks(
-                    db, chunks, exam_id=exam.id, kind="correction",
-                    source_path=exam.correction_pdf_path, content_hash=pdf_hash,
+                    db,
+                    chunks,
+                    exam_id=exam.id,
+                    kind="correction",
+                    source_path=exam.correction_pdf_path,
+                    content_hash=pdf_hash,
                     title=f"Corrigé - {exam.title}",
                     force=force,
                 )
@@ -86,16 +91,16 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                 full_text = "\n\n".join(text_per_page)
                 chunks = chunk_generic_pdf(full_text)
                 total_chunks += _persist_chunks(
-                    db, chunks, exam_id=exam.id, kind="rubric",
-                    source_path=exam.rubric_pdf_path, content_hash=pdf_hash,
+                    db,
+                    chunks,
+                    exam_id=exam.id,
+                    kind="rubric",
+                    source_path=exam.rubric_pdf_path,
+                    content_hash=pdf_hash,
                     title=f"Barème PDF - {exam.title}",
                     force=force,
                 )
 
-        # Update exam metadata
-        meta = exam.rubric_json if isinstance(exam.rubric_json, dict) else {}
-        # Store embedding status in a separate metadata field or repurpose
-        # For now we use a simple approach: store in-memory and commit
         db.commit()
 
         logger.info("Embedded exam %s: %d chunks total", exam_id, total_chunks)

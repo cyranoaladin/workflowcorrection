@@ -10,6 +10,7 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
+
 def call_azure_read(image_path: str) -> dict:
     settings = get_settings()
     source = "azure"
@@ -24,7 +25,10 @@ def call_azure_read(image_path: str) -> dict:
             "confidence": 0,
             "error_message": "paid_calls_disabled",
         }
-    if not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
+    if (
+        not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+        or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY
+    ):
         return {
             "source": source,
             "status": "error",
@@ -71,14 +75,19 @@ def call_azure_read(image_path: str) -> dict:
                     "error_message": f"azure_http_{r.status_code}",
                 }
 
-            op_loc = r.headers.get("Operation-Location") or r.headers.get("operation-location")
+            op_loc = r.headers.get("Operation-Location") or r.headers.get(
+                "operation-location"
+            )
             if not op_loc:
                 return {
                     "source": source,
                     "status": "error",
                     "raw_text": None,
                     "raw_latex": None,
-                    "raw_json": {"status_code": r.status_code, "headers": dict(r.headers)},
+                    "raw_json": {
+                        "status_code": r.status_code,
+                        "headers": dict(r.headers),
+                    },
                     "confidence": 0,
                     "error_message": "missing_operation_location",
                 }

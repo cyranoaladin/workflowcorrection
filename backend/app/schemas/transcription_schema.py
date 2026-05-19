@@ -28,4 +28,3 @@ class TranscriptionRead(BaseModel):
     needs_human_review: bool
     error_message: str | None
     created_at: datetime
-

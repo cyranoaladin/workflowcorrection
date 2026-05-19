@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 
-def merge_transcriptions(mathpix_json: dict | None, azure_json: dict | None, openai_json: dict | None) -> dict:
+def merge_transcriptions(
+    mathpix_json: dict | None, azure_json: dict | None, openai_json: dict | None
+) -> dict:
     # Phase 2: implement robust fusion + traceability
     return {
         "status": "not_implemented",
@@ -11,4 +13,3 @@ def merge_transcriptions(mathpix_json: dict | None, azure_json: dict | None, ope
             "openai": bool(openai_json),
         },
     }
-

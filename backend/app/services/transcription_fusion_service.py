@@ -69,11 +69,17 @@ def fuse_transcriptions(
 
     # Detect latex disagreement if both present
     if _norm(m_latex) and _norm(o_latex) and _similarity(m_latex, o_latex) < 0.7:
-        disagreements.append({"field": "latex", "mathpix": m_latex, "azure": None, "openai": o_latex})
+        disagreements.append(
+            {"field": "latex", "mathpix": m_latex, "azure": None, "openai": o_latex}
+        )
 
     # Conservative confidence: min of provided confidences (or 0.0 if missing)
     confidences: list[float] = []
-    for v in ((mathpix or {}).get("confidence"), (azure or {}).get("confidence"), (openai or {}).get("confidence")):
+    for v in (
+        (mathpix or {}).get("confidence"),
+        (azure or {}).get("confidence"),
+        (openai or {}).get("confidence"),
+    ):
         try:
             if v is None:
                 continue
@@ -99,4 +105,3 @@ def fuse_transcriptions(
         "confidence": confidence,
         "needs_human_review": needs_human_review,
     }
-

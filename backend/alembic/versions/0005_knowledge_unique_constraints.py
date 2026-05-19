@@ -17,7 +17,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.execute("ALTER TABLE knowledge_documents DROP CONSTRAINT IF EXISTS knowledge_documents_content_hash_key")
+    op.execute(
+        "ALTER TABLE knowledge_documents DROP CONSTRAINT IF EXISTS knowledge_documents_content_hash_key"
+    )
     op.execute("""
         CREATE UNIQUE INDEX IF NOT EXISTS uq_knowledge_documents_exam_hash
         ON knowledge_documents (exam_id, content_hash)
@@ -36,7 +38,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_constraint("uq_knowledge_chunks_doc_chunk", "knowledge_chunks", type_="unique")
+    op.drop_constraint(
+        "uq_knowledge_chunks_doc_chunk", "knowledge_chunks", type_="unique"
+    )
     op.execute("DROP INDEX IF EXISTS uq_knowledge_documents_owner_hash_path")
     op.execute("DROP INDEX IF EXISTS uq_knowledge_documents_exam_hash")
     op.create_unique_constraint(

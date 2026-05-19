@@ -18,7 +18,10 @@ def require_admin(
     if not expected:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"error": "admin_token_not_configured", "message": "ADMIN_API_TOKEN is not configured"},
+            detail={
+                "error": "admin_token_not_configured",
+                "message": "ADMIN_API_TOKEN is not configured",
+            },
         )
 
     if credentials is None or credentials.scheme.lower() != "bearer":

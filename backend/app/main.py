@@ -13,7 +13,15 @@ from app.core.database import engine
 from app.core.logging_config import configure_logging
 from app.core.security import require_admin
 from app.core.storage import get_storage
-from app.routers import copies, corrections, exams, health, integrations, knowledge, pages
+from app.routers import (
+    copies,
+    corrections,
+    exams,
+    health,
+    integrations,
+    knowledge,
+    pages,
+)
 
 configure_logging()
 settings = get_settings()
@@ -26,14 +34,16 @@ async def lifespan(_: FastAPI):
     get_storage().ensure_base_dirs()
     if settings.RAG_PROVIDER == "pgvector":
         with engine.connect() as conn:
-            row = conn.execute(text("""
+            row = conn.execute(
+                text("""
                 SELECT format_type(a.atttypid, a.atttypmod) AS type_name
                 FROM pg_attribute a
                 JOIN pg_class c ON a.attrelid = c.oid
                 WHERE c.relname = 'knowledge_chunks'
                   AND a.attname = 'embedding'
                   AND NOT a.attisdropped
-            """)).first()
+            """)
+            ).first()
         if row:
             match = re.fullmatch(r"vector\((\d+)\)", row.type_name)
             if match and int(match.group(1)) != settings.EMBEDDING_DIMENSION:

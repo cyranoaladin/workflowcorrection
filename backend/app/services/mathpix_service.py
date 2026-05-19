@@ -65,7 +65,9 @@ def call_mathpix_image(image_path: str) -> dict:
 
         timeout = httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0)
         with httpx.Client(timeout=timeout) as client:
-            r = client.post("https://api.mathpix.com/v3/text", json=payload, headers=headers)
+            r = client.post(
+                "https://api.mathpix.com/v3/text", json=payload, headers=headers
+            )
 
         raw_json = {}
         try:
@@ -74,10 +76,14 @@ def call_mathpix_image(image_path: str) -> dict:
             raw_json = {"_non_json_response": r.text[:2000]}
 
         # Mathpix frequently returns errors with HTTP 200 and `error`/`error_info`.
-        if isinstance(raw_json, dict) and (raw_json.get("error") or (raw_json.get("error_info") or {}).get("id")):
+        if isinstance(raw_json, dict) and (
+            raw_json.get("error") or (raw_json.get("error_info") or {}).get("id")
+        ):
             error_info = raw_json.get("error_info") or {}
             error_id = error_info.get("id") or "mathpix_error"
-            error_msg = error_info.get("message") or raw_json.get("error") or "Mathpix error"
+            error_msg = (
+                error_info.get("message") or raw_json.get("error") or "Mathpix error"
+            )
             logger.warning("Mathpix API error id=%s", error_id)
             return {
                 "source": source,

@@ -12,6 +12,7 @@ from app.services.embedding_service import embed_texts
 from app.services.rag.base import RetrievedChunk
 from app.services.rag.pgvector_provider import _vector_literal
 
+
 def retrieve(
     *,
     db: Session,

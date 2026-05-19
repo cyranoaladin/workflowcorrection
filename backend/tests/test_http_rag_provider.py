@@ -38,7 +38,13 @@ def test_http_rag_provider_retrieve_maps_hits() -> None:
         transport=httpx.MockTransport(handler),
     )
 
-    chunks = provider.retrieve(exam_id="exam-1", question_id="Q1", query="derivee", top_k=3, kinds=["correction"])
+    chunks = provider.retrieve(
+        exam_id="exam-1",
+        question_id="Q1",
+        query="derivee",
+        top_k=3,
+        kinds=["correction"],
+    )
 
     assert len(chunks) == 1
     assert chunks[0].id == "chunk-1"
@@ -61,7 +67,9 @@ def test_http_rag_provider_raises_on_unauthorized() -> None:
     provider = HttpRagProvider(
         base_url="https://rag.example.test",
         token="bad-token",
-        transport=httpx.MockTransport(lambda _: httpx.Response(401, json={"detail": "Unauthorized"})),
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(401, json={"detail": "Unauthorized"})
+        ),
     )
 
     with pytest.raises(RagAuthError):

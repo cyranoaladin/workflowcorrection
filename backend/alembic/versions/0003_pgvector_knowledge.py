@@ -26,15 +26,32 @@ def upgrade() -> None:
     op.create_table(
         "knowledge_documents",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
-        sa.Column("exam_id", UUID(as_uuid=True), sa.ForeignKey("exams.id", ondelete="CASCADE"), nullable=True),
+        sa.Column(
+            "exam_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("exams.id", ondelete="CASCADE"),
+            nullable=True,
+        ),
         sa.Column("owner_id", UUID(as_uuid=True), nullable=True),
         sa.Column("kind", sa.Text(), nullable=False),
         sa.Column("source_path", sa.Text(), nullable=False),
         sa.Column("content_hash", sa.Text(), nullable=False),
         sa.Column("title", sa.Text(), nullable=True),
-        sa.Column("metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.CheckConstraint(
             "kind IN ('correction', 'rubric', 'syllabus', 'user_doc')",
             name="ck_knowledge_documents_kind",
@@ -45,22 +62,40 @@ def upgrade() -> None:
     op.create_table(
         "knowledge_chunks",
         sa.Column("id", UUID(as_uuid=True), primary_key=True),
-        sa.Column("document_id", UUID(as_uuid=True), sa.ForeignKey("knowledge_documents.id", ondelete="CASCADE"), nullable=False),
+        sa.Column(
+            "document_id",
+            UUID(as_uuid=True),
+            sa.ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
+            nullable=False,
+        ),
         sa.Column("chunk_index", sa.Integer(), nullable=False),
         sa.Column("text", sa.Text(), nullable=False),
         sa.Column("latex", sa.Text(), nullable=True),
         sa.Column("question_id", sa.Text(), nullable=True),
         sa.Column("tokens", sa.Integer(), nullable=True),
-        sa.Column("metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False
+        ),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
     )
 
     # Add the vector column via raw SQL (dimension configured at runtime, default 1536)
-    op.execute("ALTER TABLE knowledge_chunks ADD COLUMN embedding vector(1536) NOT NULL")
+    op.execute(
+        "ALTER TABLE knowledge_chunks ADD COLUMN embedding vector(1536) NOT NULL"
+    )
 
     # Indexes
-    op.create_index("ix_knowledge_chunks_document_id", "knowledge_chunks", ["document_id"])
-    op.create_index("ix_knowledge_chunks_question_id", "knowledge_chunks", ["question_id"])
+    op.create_index(
+        "ix_knowledge_chunks_document_id", "knowledge_chunks", ["document_id"]
+    )
+    op.create_index(
+        "ix_knowledge_chunks_question_id", "knowledge_chunks", ["question_id"]
+    )
     op.execute(
         "CREATE INDEX ix_knowledge_chunks_embedding_hnsw ON knowledge_chunks "
         "USING hnsw (embedding vector_cosine_ops)"

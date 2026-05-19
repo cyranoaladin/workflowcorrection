@@ -34,7 +34,9 @@ class HttpRagProvider:
             if auth_header.lower() == "authorization"
             else {auth_header: token}
         )
-        self._timeout = httpx.Timeout(connect=5.0, read=timeout, write=timeout, pool=5.0)
+        self._timeout = httpx.Timeout(
+            connect=5.0, read=timeout, write=timeout, pool=5.0
+        )
         self._collection = collection
         self._transport = transport
         self._sleep = sleep
@@ -61,7 +63,9 @@ class HttpRagProvider:
         if question_id:
             filters["metadata"]["question_id"] = question_id
         if kinds:
-            filters["metadata"]["kind"] = kinds[0] if len(kinds) == 1 else {"$in": kinds}
+            filters["metadata"]["kind"] = (
+                kinds[0] if len(kinds) == 1 else {"$in": kinds}
+            )
 
         response = self._request(
             "POST",
@@ -95,7 +99,11 @@ class HttpRagProvider:
             "content_hash": content_hash,
             **(metadata or {}),
         }
-        text = chunks_or_text if isinstance(chunks_or_text, str) else "\n\n".join(c.text for c in chunks_or_text)
+        text = (
+            chunks_or_text
+            if isinstance(chunks_or_text, str)
+            else "\n\n".join(c.text for c in chunks_or_text)
+        )
         if not force:
             dedup = self._request(
                 "POST",
@@ -103,7 +111,11 @@ class HttpRagProvider:
                 json={"sources": [source_path], "collection": self._collection},
             ).json()
             if any(item.get("already_ingested") for item in dedup.get("results", [])):
-                return {"status": "skipped", "chunks_count": 0, "collection": self._collection}
+                return {
+                    "status": "skipped",
+                    "chunks_count": 0,
+                    "collection": self._collection,
+                }
 
         response = self._request(
             "POST",
@@ -114,19 +126,29 @@ class HttpRagProvider:
                 "hints": {
                     "collection": self._collection,
                     "title": title or source_path,
-                    **{key: str(value) for key, value in merged_metadata.items() if value is not None},
+                    **{
+                        key: str(value)
+                        for key, value in merged_metadata.items()
+                        if value is not None
+                    },
                 },
             },
         )
         return response.json()
 
-    def _request(self, method: str, path: str, *, retries: int = 3, **kwargs: Any) -> httpx.Response:
+    def _request(
+        self, method: str, path: str, *, retries: int = 3, **kwargs: Any
+    ) -> httpx.Response:
         url = f"{self._base_url}{path}"
         last_exc: Exception | None = None
         for attempt in range(retries):
             try:
-                with httpx.Client(timeout=self._timeout, transport=self._transport) as client:
-                    response = client.request(method, url, headers=self._headers, **kwargs)
+                with httpx.Client(
+                    timeout=self._timeout, transport=self._transport
+                ) as client:
+                    response = client.request(
+                        method, url, headers=self._headers, **kwargs
+                    )
                 if response.status_code in {401, 403}:
                     raise RagAuthError("rag_http_auth_failed")
                 if response.status_code >= 500 and attempt < retries - 1:
@@ -154,7 +176,9 @@ class HttpRagProvider:
             text=str(hit.get("document") or hit.get("text") or ""),
             latex=metadata.get("latex"),
             question_id=metadata.get("question_id"),
-            tokens=int(metadata["tokens"]) if metadata.get("tokens") is not None else None,
+            tokens=int(metadata["tokens"])
+            if metadata.get("tokens") is not None
+            else None,
             metadata=metadata,
             kind=str(metadata.get("kind", "")),
             score=float(hit.get("score", 0.0) or 0.0),

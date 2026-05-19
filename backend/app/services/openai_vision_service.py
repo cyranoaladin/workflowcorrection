@@ -12,7 +12,10 @@ from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-def call_openai_vision_for_transcription(image_path: str, question_context: str) -> dict:
+
+def call_openai_vision_for_transcription(
+    image_path: str, question_context: str
+) -> dict:
     settings = get_settings()
     source = "openai_vision"
 
@@ -70,7 +73,13 @@ def call_openai_vision_for_transcription(image_path: str, question_context: str)
             "uncertain_zones": {"type": "array", "items": {"type": "string"}},
             "confidence": {"type": "number"},
         },
-        "required": ["visible_questions", "transcription", "latex_fragments", "uncertain_zones", "confidence"],
+        "required": [
+            "visible_questions",
+            "transcription",
+            "latex_fragments",
+            "uncertain_zones",
+            "confidence",
+        ],
     }
 
     try:
@@ -90,11 +99,22 @@ def call_openai_vision_for_transcription(image_path: str, question_context: str)
                     "role": "user",
                     "content": [
                         {"type": "input_text", "text": user_text},
-                        {"type": "input_image", "image_url": data_uri, "detail": "high"},
+                        {
+                            "type": "input_image",
+                            "image_url": data_uri,
+                            "detail": "high",
+                        },
                     ],
                 }
             ],
-            text={"format": {"type": "json_schema", "name": "page_transcription", "schema": schema, "strict": True}},
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "page_transcription",
+                    "schema": schema,
+                    "strict": True,
+                }
+            },
             temperature=0,
             timeout=httpx.Timeout(connect=10.0, read=90.0, write=10.0, pool=10.0),
         )
@@ -121,10 +141,17 @@ def call_openai_vision_for_transcription(image_path: str, question_context: str)
 
         # Attach non-sensitive metadata (helps debugging & token accounting).
         try:
-            usage = resp.usage.model_dump() if getattr(resp, "usage", None) is not None else None
+            usage = (
+                resp.usage.model_dump()
+                if getattr(resp, "usage", None) is not None
+                else None
+            )
         except Exception:
             usage = None
-        parsed["_openai_meta"] = {"response_id": getattr(resp, "id", None), "usage": usage}
+        parsed["_openai_meta"] = {
+            "response_id": getattr(resp, "id", None),
+            "usage": usage,
+        }
 
         transcription = parsed.get("transcription")
         latex_fragments = parsed.get("latex_fragments")

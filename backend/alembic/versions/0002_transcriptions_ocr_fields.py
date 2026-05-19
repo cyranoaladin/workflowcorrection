@@ -31,4 +31,3 @@ def downgrade() -> None:
         batch_op.drop_column("raw_latex")
         batch_op.drop_column("raw_text")
         batch_op.drop_column("input_image_type")
-

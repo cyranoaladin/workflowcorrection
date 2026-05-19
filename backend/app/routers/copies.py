@@ -45,14 +45,18 @@ def upload_copy(
     try:
         validate_pdf_upload(file)
     except UploadValidationError as e:
-        raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+        raise HTTPException(
+            status_code=415, detail={"error": e.code, "message": e.message}
+        )
 
     copy_id = uuid.uuid4()
     pdf_rel = f"copies/{copy_id}/original.pdf"
     try:
         stored = storage.save_upload(file, pdf_rel, max_bytes=settings.max_upload_bytes)
     except StorageError as e:
-        raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+        raise HTTPException(
+            status_code=413, detail={"error": "upload_error", "message": str(e)}
+        )
 
     copy = StudentCopy(
         id=copy_id,
@@ -70,7 +74,9 @@ def upload_copy(
 
 
 @router.get("/copies", response_model=list[CopyRead])
-def list_copies(exam_id: UUID | None = None, db: Session = Depends(get_db)) -> list[StudentCopy]:
+def list_copies(
+    exam_id: UUID | None = None, db: Session = Depends(get_db)
+) -> list[StudentCopy]:
     q = db.query(StudentCopy).order_by(StudentCopy.created_at.desc())
     if exam_id is not None:
         q = q.filter(StudentCopy.exam_id == exam_id)
@@ -86,7 +92,9 @@ def get_copy(copy_id: UUID, db: Session = Depends(get_db)) -> StudentCopy:
 
 
 @router.post("/copies/{copy_id}/process")
-def launch_process(copy_id: UUID, force: bool = Query(default=False), db: Session = Depends(get_db)) -> dict:
+def launch_process(
+    copy_id: UUID, force: bool = Query(default=False), db: Session = Depends(get_db)
+) -> dict:
     copy = db.get(StudentCopy, copy_id)
     if not copy:
         raise HTTPException(status_code=404, detail="Copy not found")
@@ -120,7 +128,12 @@ def list_pages(copy_id: UUID, db: Session = Depends(get_db)) -> list[CopyPage]:
     copy = db.get(StudentCopy, copy_id)
     if not copy:
         raise HTTPException(status_code=404, detail="Copy not found")
-    return db.query(CopyPage).filter(CopyPage.copy_id == copy_id).order_by(CopyPage.page_number.asc()).all()
+    return (
+        db.query(CopyPage)
+        .filter(CopyPage.copy_id == copy_id)
+        .order_by(CopyPage.page_number.asc())
+        .all()
+    )
 
 
 @router.get("/copies/{copy_id}/status")
@@ -135,7 +148,9 @@ def get_status(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
         res = AsyncResult(copy.processing_task_id, app=celery)
         task_state = res.state
         try:
-            task_info = res.info if isinstance(res.info, dict) else {"info": str(res.info)}
+            task_info = (
+                res.info if isinstance(res.info, dict) else {"info": str(res.info)}
+            )
         except Exception:
             task_info = None
 
@@ -155,11 +170,18 @@ def get_correction(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
     if not copy:
         raise HTTPException(status_code=404, detail="Copy not found")
     # MVP: no grading yet
-    return {"copy_id": str(copy.id), "corrections": [], "needs_human_review": True, "confidence": None}
+    return {
+        "copy_id": str(copy.id),
+        "corrections": [],
+        "needs_human_review": True,
+        "confidence": None,
+    }
 
 
 @router.get("/copies/{copy_id}/transcriptions", response_model=list[TranscriptionRead])
-def list_copy_transcriptions(copy_id: UUID, db: Session = Depends(get_db)) -> list[Transcription]:
+def list_copy_transcriptions(
+    copy_id: UUID, db: Session = Depends(get_db)
+) -> list[Transcription]:
     copy = db.get(StudentCopy, copy_id)
     if not copy:
         raise HTTPException(status_code=404, detail="Copy not found")
@@ -223,9 +245,17 @@ def ocr_copy(
     if not copy:
         raise HTTPException(status_code=404, detail="Copy not found")
 
-    pages = db.query(CopyPage).filter(CopyPage.copy_id == copy_id).order_by(CopyPage.page_number.asc()).all()
+    pages = (
+        db.query(CopyPage)
+        .filter(CopyPage.copy_id == copy_id)
+        .order_by(CopyPage.page_number.asc())
+        .all()
+    )
     if not pages:
-        raise HTTPException(status_code=409, detail={"error": "no_pages", "message": "Copy has no pages to OCR"})
+        raise HTTPException(
+            status_code=409,
+            detail={"error": "no_pages", "message": "Copy has no pages to OCR"},
+        )
 
     limit = int(settings.OCR_MAX_PAGES_PER_JOB)
     requested = max_pages or limit
@@ -243,14 +273,24 @@ def ocr_copy(
     if unknown:
         raise HTTPException(
             status_code=400,
-            detail={"error": "unknown_sources", "message": f"Unknown OCR sources: {unknown}", "allowed": sorted(allowed)},
+            detail={
+                "error": "unknown_sources",
+                "message": f"Unknown OCR sources: {unknown}",
+                "allowed": sorted(allowed),
+            },
         )
 
     # Validate configuration up front for selected sources.
-    if "mathpix" in sources and (not settings.MATHPIX_APP_ID or not settings.MATHPIX_APP_KEY):
-        raise HTTPException(status_code=400, detail={"error": "missing_mathpix_keys", "message": "Mathpix keys not set"})
+    if "mathpix" in sources and (
+        not settings.MATHPIX_APP_ID or not settings.MATHPIX_APP_KEY
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "missing_mathpix_keys", "message": "Mathpix keys not set"},
+        )
     if "azure" in sources and (
-        not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY
+        not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
+        or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY
     ):
         raise HTTPException(
             status_code=400,
@@ -260,7 +300,10 @@ def ocr_copy(
             },
         )
     if "openai_vision" in sources and not settings.OPENAI_API_KEY:
-        raise HTTPException(status_code=400, detail={"error": "missing_openai_api_key", "message": "OpenAI key not set"})
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "missing_openai_api_key", "message": "OpenAI key not set"},
+        )
 
     storage = get_storage()
     img_type = image_type or settings.OCR_DEFAULT_IMAGE_TYPE
@@ -268,7 +311,9 @@ def ocr_copy(
 
     created: list[dict] = []
     for p in pages_to_process:
-        rel = p.original_image_path if img_type == "original" else p.processed_image_path
+        rel = (
+            p.original_image_path if img_type == "original" else p.processed_image_path
+        )
         if not rel:
             continue
         abs_path = storage.resolve(rel)

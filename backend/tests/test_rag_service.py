@@ -5,9 +5,7 @@ from __future__ import annotations
 import uuid
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from app.services.rag_service import RetrievedChunk, retrieve, _vector_literal
+from app.services.rag_service import retrieve, _vector_literal
 
 
 class TestVectorLiteral:
@@ -123,7 +121,9 @@ class TestRetrieve:
         db = MagicMock()
         db.execute.return_value.fetchall.return_value = []
 
-        retrieve(db=db, exam_id=uuid.uuid4(), query="test", kinds=["correction", "rubric"])
+        retrieve(
+            db=db, exam_id=uuid.uuid4(), query="test", kinds=["correction", "rubric"]
+        )
         call_args = db.execute.call_args
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
         assert params["kinds"] == ["correction", "rubric"]

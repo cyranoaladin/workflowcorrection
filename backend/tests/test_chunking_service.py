@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.services.chunking_service import (
-    Chunk,
     chunk_correction_pdf,
     chunk_generic_pdf,
     chunk_rubric_json,
@@ -16,8 +13,20 @@ class TestChunkRubricJson:
     def test_basic_rubric(self):
         rubric = {
             "questions": [
-                {"id": "Q1", "label": "Calculer f'(x)", "points_max": 4, "criteria": ["dérivée correcte", "simplification"], "expected_answer": "$f'(x) = 2x$"},
-                {"id": "Q2", "label": "Résoudre l'équation", "points_max": 6, "criteria": ["mise en forme", "résolution"], "expected_answer": "$x = 3$"},
+                {
+                    "id": "Q1",
+                    "label": "Calculer f'(x)",
+                    "points_max": 4,
+                    "criteria": ["dérivée correcte", "simplification"],
+                    "expected_answer": "$f'(x) = 2x$",
+                },
+                {
+                    "id": "Q2",
+                    "label": "Résoudre l'équation",
+                    "points_max": 6,
+                    "criteria": ["mise en forme", "résolution"],
+                    "expected_answer": "$x = 3$",
+                },
             ]
         }
         chunks = chunk_rubric_json(rubric)
@@ -33,13 +42,21 @@ class TestChunkRubricJson:
         assert chunks == []
 
     def test_rubric_no_expected_answer(self):
-        rubric = {"questions": [{"id": "Q1", "label": "Question", "points_max": 2, "criteria": []}]}
+        rubric = {
+            "questions": [
+                {"id": "Q1", "label": "Question", "points_max": 2, "criteria": []}
+            ]
+        }
         chunks = chunk_rubric_json(rubric)
         assert len(chunks) == 1
         assert chunks[0].latex is None
 
     def test_chunk_index_assigned(self):
-        rubric = {"questions": [{"id": f"Q{i}", "label": f"Q{i}", "points_max": 1} for i in range(5)]}
+        rubric = {
+            "questions": [
+                {"id": f"Q{i}", "label": f"Q{i}", "points_max": 1} for i in range(5)
+            ]
+        }
         chunks = chunk_rubric_json(rubric)
         assert [c.chunk_index for c in chunks] == [0, 1, 2, 3, 4]
 

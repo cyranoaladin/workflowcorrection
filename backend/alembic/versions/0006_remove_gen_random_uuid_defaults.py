@@ -24,5 +24,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto")
-    op.alter_column("knowledge_documents", "id", server_default=sa.text("gen_random_uuid()"))
-    op.alter_column("knowledge_chunks", "id", server_default=sa.text("gen_random_uuid()"))
+    op.alter_column(
+        "knowledge_documents", "id", server_default=sa.text("gen_random_uuid()")
+    )
+    op.alter_column(
+        "knowledge_chunks", "id", server_default=sa.text("gen_random_uuid()")
+    )

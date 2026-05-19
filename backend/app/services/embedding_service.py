@@ -34,7 +34,9 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         return []
 
     if settings.EMBEDDING_PROVIDER == "openai":
-        embeddings = _embed_openai(texts, settings.EMBEDDING_MODEL, settings.EMBEDDING_DIMENSION)
+        embeddings = _embed_openai(
+            texts, settings.EMBEDDING_MODEL, settings.EMBEDDING_DIMENSION
+        )
     elif settings.EMBEDDING_PROVIDER == "tei":
         embeddings = _embed_tei(texts, settings.TEI_ENDPOINT)
     else:

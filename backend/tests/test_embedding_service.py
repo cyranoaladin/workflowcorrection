@@ -112,7 +112,9 @@ class TestEmbedTexts:
 
         result = embed_texts(["test tei"])
         assert len(result) == 1
-        mock_ctx.post.assert_called_once_with("http://tei:80/embed", json={"inputs": ["test tei"]})
+        mock_ctx.post.assert_called_once_with(
+            "http://tei:80/embed", json={"inputs": ["test tei"]}
+        )
 
     @patch("app.services.embedding_service.get_settings")
     def test_unknown_provider_raises(self, mock_settings):
@@ -126,7 +128,9 @@ class TestEmbedTexts:
     @patch("app.services.embedding_service.get_settings")
     @patch("app.services.embedding_service.OpenAI")
     @patch("app.services.embedding_service.time.sleep")
-    def test_openai_retry_on_rate_limit(self, mock_sleep, mock_openai_cls, mock_settings):
+    def test_openai_retry_on_rate_limit(
+        self, mock_sleep, mock_openai_cls, mock_settings
+    ):
         """Should retry on RateLimitError with exponential backoff."""
         from openai import RateLimitError
 

@@ -32,4 +32,3 @@ def test_image_preprocess_service(tmp_path: Path):
     assert output_path.exists()
     assert info["width"] == 80
     assert info["height"] == 120
-

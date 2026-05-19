@@ -57,18 +57,24 @@ def chunk_rubric_json(rubric: dict) -> list[Chunk]:
             parts.append(f"Réponse attendue: {expected}")
 
         text = "\n".join(parts)
-        chunks.append(Chunk(
-            text=text,
-            latex=expected if "$" in str(expected) or "\\" in str(expected) else None,
-            question_id=qid,
-            chunk_index=i,
-            tokens=_count_tokens(text),
-        ))
+        chunks.append(
+            Chunk(
+                text=text,
+                latex=expected
+                if "$" in str(expected) or "\\" in str(expected)
+                else None,
+                question_id=qid,
+                chunk_index=i,
+                tokens=_count_tokens(text),
+            )
+        )
 
     return chunks
 
 
-def chunk_correction_pdf(text_per_page: list[str], rubric_questions: list[dict]) -> list[Chunk]:
+def chunk_correction_pdf(
+    text_per_page: list[str], rubric_questions: list[dict]
+) -> list[Chunk]:
     """Chunk a correction PDF by question using heuristic regex matching.
 
     Tries to split the full text into sections per question based on patterns like
@@ -97,16 +103,20 @@ def chunk_correction_pdf(text_per_page: list[str], rubric_questions: list[dict])
         question_id = _match_question_id(q_num, q_ids)
 
         # Extract LaTeX fragments
-        latex_frags = re.findall(r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", section, re.DOTALL)
+        latex_frags = re.findall(
+            r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", section, re.DOTALL
+        )
         latex = "\n".join(latex_frags) if latex_frags else None
 
-        chunks.append(Chunk(
-            text=section,
-            latex=latex,
-            question_id=question_id,
-            chunk_index=idx,
-            tokens=_count_tokens(section),
-        ))
+        chunks.append(
+            Chunk(
+                text=section,
+                latex=latex,
+                question_id=question_id,
+                chunk_index=idx,
+                tokens=_count_tokens(section),
+            )
+        )
 
     return chunks
 
@@ -140,13 +150,17 @@ def chunk_generic_pdf(
         if current_tokens + para_tokens > max_tokens and current_parts:
             # Flush current chunk
             chunk_text = "\n\n".join(current_parts)
-            latex_frags = re.findall(r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL)
-            chunks.append(Chunk(
-                text=chunk_text,
-                latex="\n".join(latex_frags) if latex_frags else None,
-                chunk_index=len(chunks),
-                tokens=_count_tokens(chunk_text),
-            ))
+            latex_frags = re.findall(
+                r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL
+            )
+            chunks.append(
+                Chunk(
+                    text=chunk_text,
+                    latex="\n".join(latex_frags) if latex_frags else None,
+                    chunk_index=len(chunks),
+                    tokens=_count_tokens(chunk_text),
+                )
+            )
             if overlap_size > 0:
                 overlap_text = _tail_by_token_budget(chunk_text, overlap_size)
                 current_parts = [overlap_text] if overlap_text else []
@@ -161,13 +175,17 @@ def chunk_generic_pdf(
     # Final chunk
     if current_parts:
         chunk_text = "\n\n".join(current_parts)
-        latex_frags = re.findall(r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL)
-        chunks.append(Chunk(
-            text=chunk_text,
-            latex="\n".join(latex_frags) if latex_frags else None,
-            chunk_index=len(chunks),
-            tokens=_count_tokens(chunk_text),
-        ))
+        latex_frags = re.findall(
+            r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL
+        )
+        chunks.append(
+            Chunk(
+                text=chunk_text,
+                latex="\n".join(latex_frags) if latex_frags else None,
+                chunk_index=len(chunks),
+                tokens=_count_tokens(chunk_text),
+            )
+        )
 
     return chunks
 
@@ -191,12 +209,14 @@ def _chunk_by_pages(pages: list[str], question_id: str | None) -> list[Chunk]:
     for i, page in enumerate(pages):
         if not page.strip():
             continue
-        chunks.append(Chunk(
-            text=page.strip(),
-            question_id=question_id,
-            chunk_index=i,
-            tokens=_count_tokens(page),
-        ))
+        chunks.append(
+            Chunk(
+                text=page.strip(),
+                question_id=question_id,
+                chunk_index=i,
+                tokens=_count_tokens(page),
+            )
+        )
     return chunks
 
 

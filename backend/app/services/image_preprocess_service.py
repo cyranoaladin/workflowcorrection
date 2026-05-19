@@ -36,4 +36,3 @@ def preprocess_image(input_path: Path, output_path: Path) -> dict:
 
     h, w = thresh.shape[:2]
     return {"width": int(w), "height": int(h)}
-
