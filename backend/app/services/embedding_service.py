@@ -40,7 +40,9 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
     else:
         raise ValueError(f"Unknown EMBEDDING_PROVIDER: {settings.EMBEDDING_PROVIDER}")
 
-    expected = settings.EMBEDDING_DIMENSION
+    expected = getattr(settings, "EMBEDDING_DIMENSION", None)
+    if not isinstance(expected, int):
+        expected = len(embeddings[0]) if embeddings else 0
     for index, embedding in enumerate(embeddings):
         if len(embedding) != expected:
             raise ValueError(
