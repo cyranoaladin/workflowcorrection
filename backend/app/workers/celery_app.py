@@ -10,7 +10,7 @@ celery = Celery(
     "math_correction",
     broker=settings.CELERY_BROKER_URL,
     backend=settings.CELERY_RESULT_BACKEND,
-    include=["app.workers.tasks"],
+    include=["app.workers.tasks", "app.workers.embed_tasks"],
 )
 
 celery.conf.update(
@@ -24,3 +24,4 @@ celery.conf.update(
 
 # Ensure task modules are imported so tasks are registered.
 import app.workers.tasks  # noqa: E402,F401
+import app.workers.embed_tasks  # noqa: E402,F401
