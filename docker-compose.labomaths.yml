@@ -1,8 +1,8 @@
 # docker-compose.labomaths.yml
 # Stack workflowcorrection pour intégration dans maths.labomaths.tn
-# Nginx est le reverse proxy système sur le serveur (pas Docker).
-# Le backend écoute sur 127.0.0.1:8010 et le frontend sur 127.0.0.1:3011
-# pour que Nginx puisse les proxifier sans conflit de ports.
+# Caddy est géré en SERVICE SYSTÈME sur le serveur (pas en Docker).
+# Le backend écoute sur 127.0.0.1:8001 et le frontend sur 127.0.0.1:3001
+# pour que le Caddy système puisse les proxifier sans conflit de ports.
 
 services:
   postgres:
@@ -43,7 +43,7 @@ services:
     volumes:
       - ./storage:/app/storage
     ports:
-      - "127.0.0.1:8010:8000"   # Accessible uniquement depuis localhost pour Nginx système
+      - "127.0.0.1:8010:8000"   # Accessible uniquement depuis localhost pour Caddy système
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,7 +80,7 @@ services:
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
       NEXT_PUBLIC_BASE_PATH: /correction
     ports:
-      - "127.0.0.1:3011:3000"   # Accessible uniquement depuis localhost pour Nginx système
+      - "127.0.0.1:3011:3000"   # Accessible uniquement depuis localhost pour Caddy système
     depends_on:
       - backend
 
