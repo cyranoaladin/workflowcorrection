@@ -201,7 +201,7 @@ def grade_copy_task(self, copy_id: str, force: bool = False) -> dict:
         for q in rubric_questions:
             qid = str(q.get("id", "unknown"))
             self.update_state(state="PROGRESS", meta={"grading_question": qid})
-            result = grade_question(qid, q, full_transcription)
+            result = grade_question(qid, q, full_transcription, exam_id=str(copy.exam_id))
             grading_results.append(result)
 
             if result.get("status") == "ok" and result.get("points_awarded") is not None:

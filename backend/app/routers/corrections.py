@@ -122,7 +122,7 @@ def grade_copy(
     for q in rubric_questions:
         qid = str(q.get("id", "unknown"))
         q_points_max = _to_float(q.get("points_max"), 0.0) or 0.0
-        result = grade_question(qid, q, full_transcription) or {}
+        result = grade_question(qid, q, full_transcription, exam_id=str(exam.id)) or {}
         if not isinstance(result, dict):
             result = {}
 
