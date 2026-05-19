@@ -53,19 +53,20 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
         # 1. Embed rubric JSON if available
         if exam.rubric_json:
             rubric_hash = _hash_content(str(exam.rubric_json).encode())
-            if force or not _doc_exists(db, rubric_hash):
+            if force or not _doc_exists(db, exam_id=exam.id, content_hash=rubric_hash):
                 chunks = chunk_rubric_json(exam.rubric_json)
                 total_chunks += _persist_chunks(
                     db, chunks, exam_id=exam.id, kind="rubric",
                     source_path="rubric_json", content_hash=rubric_hash,
                     title=f"Barème - {exam.title}",
+                    force=force,
                 )
 
         # 2. Embed correction PDF if available
         if exam.correction_pdf_path:
             pdf_bytes = storage.read(exam.correction_pdf_path)
             pdf_hash = _hash_content(pdf_bytes)
-            if force or not _doc_exists(db, pdf_hash):
+            if force or not _doc_exists(db, exam_id=exam.id, content_hash=pdf_hash):
                 text_per_page = _extract_text_from_pdf(pdf_bytes)
                 rubric_questions = (exam.rubric_json or {}).get("questions", [])
                 chunks = chunk_correction_pdf(text_per_page, rubric_questions)
@@ -73,13 +74,14 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                     db, chunks, exam_id=exam.id, kind="correction",
                     source_path=exam.correction_pdf_path, content_hash=pdf_hash,
                     title=f"Corrigé - {exam.title}",
+                    force=force,
                 )
 
         # 3. Embed rubric PDF if available (as generic)
         if exam.rubric_pdf_path:
             pdf_bytes = storage.read(exam.rubric_pdf_path)
             pdf_hash = _hash_content(pdf_bytes)
-            if force or not _doc_exists(db, pdf_hash):
+            if force or not _doc_exists(db, exam_id=exam.id, content_hash=pdf_hash):
                 text_per_page = _extract_text_from_pdf(pdf_bytes)
                 full_text = "\n\n".join(text_per_page)
                 chunks = chunk_generic_pdf(full_text)
@@ -87,6 +89,7 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                     db, chunks, exam_id=exam.id, kind="rubric",
                     source_path=exam.rubric_pdf_path, content_hash=pdf_hash,
                     title=f"Barème PDF - {exam.title}",
+                    force=force,
                 )
 
         # Update exam metadata
@@ -111,11 +114,14 @@ def _hash_content(content: bytes) -> str:
     return hashlib.sha256(content).hexdigest()
 
 
-def _doc_exists(db: Session, content_hash: str) -> bool:
-    """Check if a document with this hash already exists."""
+def _doc_exists(db: Session, *, exam_id: uuid.UUID, content_hash: str) -> bool:
+    """Check if this exam already has a document with this hash."""
     return (
         db.query(KnowledgeDocument)
-        .filter(KnowledgeDocument.content_hash == content_hash)
+        .filter(
+            KnowledgeDocument.exam_id == exam_id,
+            KnowledgeDocument.content_hash == content_hash,
+        )
         .first()
         is not None
     )
@@ -130,20 +136,25 @@ def _persist_chunks(
     source_path: str,
     content_hash: str,
     title: str,
+    force: bool = False,
 ) -> int:
     """Persist a document and its chunks with embeddings. Returns chunk count."""
     if not chunks:
         return 0
 
-    # Delete existing document with same hash if force-re-embedding
     existing = (
         db.query(KnowledgeDocument)
-        .filter(KnowledgeDocument.content_hash == content_hash)
+        .filter(
+            KnowledgeDocument.exam_id == exam_id,
+            KnowledgeDocument.content_hash == content_hash,
+        )
         .first()
     )
-    if existing:
+    if existing and force:
         db.delete(existing)
         db.flush()
+    elif existing:
+        return 0
 
     # Create document
     doc = KnowledgeDocument(
@@ -160,28 +171,18 @@ def _persist_chunks(
     texts = [c.text for c in chunks]
     embeddings = embed_texts(texts)
 
-    # Insert chunks with embeddings via raw SQL (vector column)
-    from sqlalchemy import text as sa_text
-
     for chunk, embedding in zip(chunks, embeddings):
-        chunk_id = uuid.uuid4()
-        vector_str = "[" + ",".join(f"{v:.8f}" for v in embedding) + "]"
-        db.execute(
-            sa_text("""
-                INSERT INTO knowledge_chunks (id, document_id, chunk_index, text, latex, question_id, tokens, metadata, embedding, created_at)
-                VALUES (:id, :document_id, :chunk_index, :text, :latex, :question_id, :tokens, :metadata::jsonb, :embedding::vector, NOW())
-            """),
-            {
-                "id": str(chunk_id),
-                "document_id": str(doc.id),
-                "chunk_index": chunk.chunk_index,
-                "text": chunk.text,
-                "latex": chunk.latex,
-                "question_id": chunk.question_id,
-                "tokens": chunk.tokens,
-                "metadata": "{}",
-                "embedding": vector_str,
-            },
+        db.add(
+            KnowledgeChunk(
+                document_id=doc.id,
+                chunk_index=chunk.chunk_index,
+                text=chunk.text,
+                latex=chunk.latex,
+                question_id=chunk.question_id,
+                tokens=chunk.tokens,
+                metadata_={},
+                embedding=embedding,
+            )
         )
 
     db.flush()

@@ -25,12 +25,12 @@ def upgrade() -> None:
     # knowledge_documents
     op.create_table(
         "knowledge_documents",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("exam_id", UUID(as_uuid=True), sa.ForeignKey("exams.id", ondelete="CASCADE"), nullable=True),
         sa.Column("owner_id", UUID(as_uuid=True), nullable=True),
         sa.Column("kind", sa.Text(), nullable=False),
         sa.Column("source_path", sa.Text(), nullable=False),
-        sa.Column("content_hash", sa.Text(), nullable=False, unique=True),
+        sa.Column("content_hash", sa.Text(), nullable=False),
         sa.Column("title", sa.Text(), nullable=True),
         sa.Column("metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
@@ -44,7 +44,7 @@ def upgrade() -> None:
     # knowledge_chunks — use raw SQL for the vector column since SA doesn't have native vector type
     op.create_table(
         "knowledge_chunks",
-        sa.Column("id", UUID(as_uuid=True), primary_key=True, server_default=sa.text("gen_random_uuid()")),
+        sa.Column("id", UUID(as_uuid=True), primary_key=True),
         sa.Column("document_id", UUID(as_uuid=True), sa.ForeignKey("knowledge_documents.id", ondelete="CASCADE"), nullable=False),
         sa.Column("chunk_index", sa.Integer(), nullable=False),
         sa.Column("text", sa.Text(), nullable=False),
