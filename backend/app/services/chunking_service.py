@@ -111,13 +111,19 @@ def chunk_correction_pdf(text_per_page: list[str], rubric_questions: list[dict])
     return chunks
 
 
-def chunk_generic_pdf(text: str, max_tokens: int = 400, overlap: int = 50) -> list[Chunk]:
+def chunk_generic_pdf(
+    text: str,
+    max_tokens: int = 400,
+    overlap: int = 50,
+    overlap_tokens: int | None = None,
+) -> list[Chunk]:
     """Chunk generic text (syllabus, user_doc) by paragraph with overlap.
 
     LaTeX-aware: avoids splitting inside $...$ or \\begin{...}...\\end{...} blocks.
     """
     if not text.strip():
         return []
+    overlap_size = overlap if overlap_tokens is None else overlap_tokens
 
     paragraphs = re.split(r"\n{2,}", text)
     chunks: list[Chunk] = []
@@ -141,11 +147,10 @@ def chunk_generic_pdf(text: str, max_tokens: int = 400, overlap: int = 50) -> li
                 chunk_index=len(chunks),
                 tokens=_count_tokens(chunk_text),
             ))
-            # Overlap: keep last paragraph
-            if overlap > 0 and current_parts:
-                last = current_parts[-1]
-                current_parts = [last]
-                current_tokens = _count_tokens(last)
+            if overlap_size > 0:
+                overlap_text = _tail_by_token_budget(chunk_text, overlap_size)
+                current_parts = [overlap_text] if overlap_text else []
+                current_tokens = _count_tokens(overlap_text) if overlap_text else 0
             else:
                 current_parts = []
                 current_tokens = 0
@@ -165,6 +170,19 @@ def chunk_generic_pdf(text: str, max_tokens: int = 400, overlap: int = 50) -> li
         ))
 
     return chunks
+
+
+def _tail_by_token_budget(text: str, token_budget: int) -> str:
+    """Return the shortest word suffix whose token count is at least token_budget."""
+    if token_budget <= 0:
+        return ""
+    words = text.split()
+    suffix: list[str] = []
+    for word in reversed(words):
+        suffix.insert(0, word)
+        if _count_tokens(" ".join(suffix)) >= token_budget:
+            break
+    return " ".join(suffix)
 
 
 def _chunk_by_pages(pages: list[str], question_id: str | None) -> list[Chunk]:

@@ -100,12 +100,15 @@ class TestChunkGenericPdf:
         assert len(chunks) >= 1
 
     def test_overlap_included(self):
-        text = "First paragraph.\n\nSecond paragraph.\n\nThird paragraph."
-        chunks = chunk_generic_pdf(text, max_tokens=10, overlap=50)
-        # With overlap, later chunks should contain text from previous
-        if len(chunks) > 1:
-            # Last chunk should contain some overlap from the previous one
-            pass  # Overlap logic is paragraph-level
+        text = (
+            "alpha beta gamma delta epsilon zeta eta theta iota kappa.\n\n"
+            "lambda mu nu xi omicron pi rho sigma tau upsilon.\n\n"
+            "phi chi psi omega final words."
+        )
+        chunks = chunk_generic_pdf(text, max_tokens=12, overlap_tokens=4)
+        assert len(chunks) >= 2
+        previous_tail_word = chunks[0].text.split()[-1]
+        assert previous_tail_word in chunks[1].text
 
     def test_empty_text(self):
         chunks = chunk_generic_pdf("")
