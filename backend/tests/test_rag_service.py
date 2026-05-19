@@ -145,7 +145,9 @@ class TestRetrieve:
         retrieve(db=db, exam_id=uuid.uuid4(), query="test", question_id=None)
         call_args = db.execute.call_args
         sql_text = str(call_args[0][0])
-        assert "question_id" not in sql_text or "IS NULL" in sql_text
+        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]["params"]
+        assert "question_id" not in params or params["question_id"] is None
+        assert "chunk.question_id = :question_id" not in sql_text
 
     @patch("app.services.rag_service.embed_texts")
     @patch("app.services.rag_service.get_settings")
