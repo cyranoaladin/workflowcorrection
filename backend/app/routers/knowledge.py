@@ -6,11 +6,12 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.exam import Exam
-from app.models.knowledge import KnowledgeDocument
+from app.models.knowledge import KnowledgeChunk, KnowledgeDocument
 
 router = APIRouter(prefix="/exams", tags=["knowledge"])
 
@@ -56,7 +57,18 @@ def embed_exam(
     from app.workers.embed_tasks import embed_exam_task
 
     task = embed_exam_task.delay(str(exam_id), force=force)
-    return EmbedResponse(status="started", task_id=task.id)
+    return _build_embed_response(task)
+
+
+def _build_embed_response(task) -> EmbedResponse:
+    if task.ready():
+        result = task.result or {}
+        return EmbedResponse(
+            status=result.get("status", "completed"),
+            task_id=task.id,
+            chunks_count=result.get("chunks_count", 0),
+        )
+    return EmbedResponse(status="queued", task_id=task.id)
 
 
 @router.get("/{exam_id}/knowledge", response_model=KnowledgeListResponse)
@@ -66,19 +78,18 @@ def list_knowledge(exam_id: UUID, db: Session = Depends(get_db)) -> KnowledgeLis
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
-    docs = (
-        db.query(KnowledgeDocument)
-        .filter(
-            (KnowledgeDocument.exam_id == exam_id) | (KnowledgeDocument.exam_id.is_(None))
-        )
+    docs_with_count = (
+        db.query(KnowledgeDocument, func.count(KnowledgeChunk.id).label("chunk_count"))
+        .outerjoin(KnowledgeChunk)
+        .filter((KnowledgeDocument.exam_id == exam_id) | (KnowledgeDocument.exam_id.is_(None)))
+        .group_by(KnowledgeDocument.id)
         .order_by(KnowledgeDocument.created_at.desc())
         .all()
     )
 
     documents: list[KnowledgeDocumentRead] = []
     total_chunks = 0
-    for doc in docs:
-        chunk_count = len(doc.chunks)
+    for doc, chunk_count in docs_with_count:
         total_chunks += chunk_count
         documents.append(KnowledgeDocumentRead(
             id=doc.id,
