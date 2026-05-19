@@ -36,7 +36,7 @@ class PgvectorRagProvider:
                 chunk.latex,
                 chunk.tokens,
                 chunk.metadata,
-                1 - (chunk.embedding <=> :query_embedding::vector) AS score
+                1 - (chunk.embedding <=> CAST(:query_embedding AS vector)) AS score
             FROM knowledge_chunks chunk
             JOIN knowledge_documents kd ON kd.id = chunk.document_id
             WHERE (:exam_id IS NULL OR kd.exam_id = :exam_id OR kd.exam_id IS NULL)
@@ -52,7 +52,7 @@ class PgvectorRagProvider:
         if kinds:
             sql += " AND kd.kind = ANY(:kinds)"
             params["kinds"] = kinds
-        sql += " ORDER BY chunk.embedding <=> :query_embedding::vector LIMIT :top_k"
+        sql += " ORDER BY chunk.embedding <=> CAST(:query_embedding AS vector) LIMIT :top_k"
 
         with SessionLocal() as db:
             rows = db.execute(sa_text(sql), params).fetchall()
