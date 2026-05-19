@@ -42,15 +42,16 @@ Les briques IA (**Mathpix / Azure Document Intelligence / OpenAI**) sont **prés
 - correction par barème + audit + rapport JSON complet
 - validation humaine des notes
 
-**Phase 4 — RAG (implémenté)**:
-- Extension `pgvector` pour recherche vectorielle
-- Tables `knowledge_documents` + `knowledge_chunks` avec embeddings HNSW
-- Service d'embedding (OpenAI `text-embedding-3-small` ou TEI auto-hébergé)
-- Chunking intelligent : par question (corrigé/barème), par paragraphe (docs génériques), LaTeX-aware
-- Task Celery `embed_exam` : indexation idempotente des documents d'un examen
-- Service RAG `retrieve()` : recherche par similarité cosinus avec filtrage par exam/question/kind
-- Endpoints : `POST /exams/{id}/embed`, `GET /exams/{id}/knowledge`
-- Garde-fou : aucun embedding automatique à l'upload, uniquement sur appel explicite
+**Phase 1 RAG Foundations (implémenté)**:
+- Provider RAG HTTP par défaut en production (`RAG_PROVIDER=http`) vers `rag-api.nexusreussite.academy`.
+- Provider local `pgvector` conservé pour dev/CI/offline (`RAG_PROVIDER=pgvector`).
+- Interface commune `RagProvider` avec retrieval par `exam_id`, `question_id` et `kind`.
+- Collection production unique `rag_math_correction`, partitionnée par metadata.
+- Extension `pgvector`, tables `knowledge_documents` + `knowledge_chunks`, index HNSW et contraintes idempotentes.
+- Chunking intelligent : par question (corrigé/barème), par paragraphe avec overlap tokenisé, LaTeX-aware.
+- Task Celery `embed_exam` : indexation explicite et idempotente des documents d'un examen.
+- Endpoints : `POST /exams/{id}/embed`, `GET /exams/{id}/embed/status`, `GET /exams/{id}/knowledge`.
+- Garde-fou : aucun embedding automatique à l'upload, uniquement sur appel explicite.
 
 ## Structure
 

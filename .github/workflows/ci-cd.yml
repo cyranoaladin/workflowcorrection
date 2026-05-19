@@ -63,6 +63,13 @@ jobs:
           DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/test_db
         run: alembic upgrade head
 
+      - name: Lint with Ruff
+        working-directory: backend
+        run: |
+          pip install ruff==0.6.9
+          ruff check .
+          ruff format --check .
+
       - name: Run tests
         working-directory: backend
         env:

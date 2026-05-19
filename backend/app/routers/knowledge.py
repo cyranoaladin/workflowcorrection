@@ -102,3 +102,26 @@ def list_knowledge(exam_id: UUID, db: Session = Depends(get_db)) -> KnowledgeLis
         ))
 
     return KnowledgeListResponse(documents=documents, total_chunks=total_chunks)
+
+
+@router.get("/{exam_id}/embed/status", response_model=EmbedResponse)
+def embed_status(
+    exam_id: UUID,
+    task_id: str = Query(..., description="Celery task id returned by POST /embed"),
+    db: Session = Depends(get_db),
+) -> EmbedResponse:
+    exam = db.get(Exam, exam_id)
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+
+    from app.workers.celery_app import celery
+
+    task = celery.AsyncResult(task_id)
+    if task.ready():
+        result = task.result if isinstance(task.result, dict) else {}
+        return EmbedResponse(
+            status=result.get("status", task.status.lower()),
+            task_id=task_id,
+            chunks_count=result.get("chunks_count", 0),
+        )
+    return EmbedResponse(status=task.status.lower(), task_id=task_id)
