@@ -72,6 +72,8 @@ def test_integrations_status_does_not_leak_keys(client, monkeypatch):
     assert data["ocr"]["paid_calls_enabled"] is False
     assert data["ocr"]["max_pages_per_job"] == 3
     assert data["ocr"]["default_image_type"] == "processed"
+    assert data["rag"]["provider"] == "pgvector"
+    assert data["rag"]["ok"] is True
 
 
 def test_page_transcriptions_endpoint_empty(client, unique_title, cleanup_ids):
