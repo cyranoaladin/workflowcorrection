@@ -46,9 +46,9 @@ class Settings(BaseSettings):
     AZURE_DOCUMENT_INTELLIGENCE_KEY: str = ""
 
     OPENAI_API_KEY: str = ""
-    OPENAI_VISION_MODEL: str = "gpt-4.1"
-    OPENAI_GRADING_MODEL: str = "gpt-4.1"
-    OPENAI_AUDIT_MODEL: str = "gpt-4.1"
+    OPENAI_VISION_MODEL: str = "gpt-4.1-mini"
+    OPENAI_GRADING_MODEL: str = "gpt-4.1-mini"
+    OPENAI_AUDIT_MODEL: str = "gpt-4.1-mini"
 
     # OCR safety
     OCR_MAX_PAGES_PER_JOB: int = 3

@@ -52,7 +52,10 @@ def call_azure_read(image_path: str) -> dict:
     url = f"{endpoint}/documentintelligence/documentModels/prebuilt-read:analyze?api-version=2024-11-30"
     fallback_url = f"{endpoint}/formrecognizer/documentModels/prebuilt-read:analyze?api-version=2024-11-30"
 
-    headers = {"Ocp-Apim-Subscription-Key": settings.AZURE_DOCUMENT_INTELLIGENCE_KEY}
+    headers = {
+        "Ocp-Apim-Subscription-Key": settings.AZURE_DOCUMENT_INTELLIGENCE_KEY,
+        "Content-Type": "application/octet-stream",
+    }
 
     timeout = httpx.Timeout(connect=10.0, read=45.0, write=10.0, pool=10.0)
     try:
