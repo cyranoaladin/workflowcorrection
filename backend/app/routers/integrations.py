@@ -18,8 +18,7 @@ def integrations_status() -> dict:
         },
         "azure_document_intelligence": {
             "configured": bool(
-                settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
-                and settings.AZURE_DOCUMENT_INTELLIGENCE_KEY
+                settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT and settings.AZURE_DOCUMENT_INTELLIGENCE_KEY
             ),
             "paid_calls_enabled": paid,
         },

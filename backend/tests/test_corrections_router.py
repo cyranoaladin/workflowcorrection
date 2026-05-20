@@ -8,7 +8,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 from uuid import UUID
 
-
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
@@ -20,9 +19,7 @@ def _make_pdf_bytes(pages: int = 1) -> bytes:
     doc = fitz.open()
     for i in range(pages):
         p = doc.new_page()
-        p.insert_text(
-            (72, 72), f"Q1: f(x) = x^2, donc f'(x) = 2x. Résultat : 2x. Page {i+1}"
-        )
+        p.insert_text((72, 72), f"Q1: f(x) = x^2, donc f'(x) = 2x. Résultat : 2x. Page {i+1}")
     data = doc.tobytes()
     doc.close()
     return data
@@ -53,9 +50,7 @@ MOCK_GRADE_Q1 = {
     "confidence": 0.88,
     "needs_human_review": False,
     "justification": "Méthode correcte, résultat bon",
-    "criteria_details": [
-        {"criterion": "Méthode correcte", "awarded": 2, "comment": "ok"}
-    ],
+    "criteria_details": [{"criterion": "Méthode correcte", "awarded": 2, "comment": "ok"}],
     "status": "ok",
     "error_message": None,
 }
@@ -75,9 +70,7 @@ MOCK_GRADE_Q2 = {
 
 def _setup_exam_with_rubric(client, cleanup_ids, unique_title):
     """Create exam + set rubric_json. Returns exam_id."""
-    r = client.post(
-        "/exams", json={"title": unique_title, "level": "TS", "session": "2026"}
-    )
+    r = client.post("/exams", json={"title": unique_title, "level": "TS", "session": "2026"})
     assert r.status_code == 200
     exam_id = r.json()["id"]
     cleanup_ids["exam_ids"].append(UUID(exam_id))
@@ -109,9 +102,10 @@ def _setup_processed_copy(client, cleanup_ids, unique_title):
 
 def _inject_transcription(copy_id: str, text: str):
     """Directly insert a transcription row for tests."""
+    from uuid import uuid4
+
     from app.core.database import SessionLocal
     from app.models.transcription import Transcription
-    from uuid import uuid4
 
     db = SessionLocal()
     try:
@@ -178,9 +172,7 @@ class TestRubricJson:
         assert "missing_points_max" in r2.json()["detail"]["error"]
 
     def test_404_on_unknown_exam(self, client):
-        r = client.post(
-            "/exams/00000000-0000-0000-0000-000000000000/rubric-json", json=RUBRIC
-        )
+        r = client.post("/exams/00000000-0000-0000-0000-000000000000/rubric-json", json=RUBRIC)
         assert r.status_code == 404
 
 
@@ -193,18 +185,14 @@ class TestExamUpdate:
         exam_id = r.json()["id"]
         cleanup_ids["exam_ids"].append(UUID(exam_id))
 
-        r2 = client.patch(
-            f"/exams/{exam_id}", json={"title": "Nouveau titre", "total_points": 30}
-        )
+        r2 = client.patch(f"/exams/{exam_id}", json={"title": "Nouveau titre", "total_points": 30})
         assert r2.status_code == 200
         data = r2.json()
         assert data["title"] == "Nouveau titre"
         assert float(data["total_points"]) == 30.0
 
     def test_patch_exam_404(self, client):
-        r = client.patch(
-            "/exams/00000000-0000-0000-0000-000000000000", json={"title": "x"}
-        )
+        r = client.patch("/exams/00000000-0000-0000-0000-000000000000", json={"title": "x"})
         assert r.status_code == 404
 
 
@@ -255,13 +243,9 @@ class TestGradeEndpoint:
 
     def test_grade_full_flow_mocked(self, client, cleanup_ids, unique_title):
         exam_id, copy_id = _setup_processed_copy(client, cleanup_ids, unique_title)
-        _inject_transcription(
-            copy_id, "f'(x) = 2x car la dérivée de x^2 est 2x. Intégrale = x^3/3."
-        )
+        _inject_transcription(copy_id, "f'(x) = 2x car la dérivée de x^2 est 2x. Intégrale = x^3/3.")
 
-        with patch("app.services.grading_service.OpenAI") as MockG, patch(
-            "app.services.audit_service.OpenAI"
-        ) as MockA:
+        with patch("app.services.grading_service.OpenAI") as MockG, patch("app.services.audit_service.OpenAI") as MockA:
 
             def side_effect(*args, **kwargs):
                 prompt = kwargs["messages"][1]["content"]
@@ -288,7 +272,9 @@ class TestGradeEndpoint:
             audit_resp.choices = [MagicMock()]
             audit_resp.choices[
                 0
-            ].message.content = '{"audit_passed": true, "additional_flags": [], "summary": "OK", "recommendation": "validate"}'
+            ].message.content = (
+                '{"audit_passed": true, "additional_flags": [], "summary": "OK", "recommendation": "validate"}'
+            )
             MockA.return_value.chat.completions.create.return_value = audit_resp
 
             r = client.post(f"/copies/{copy_id}/grade")
@@ -309,9 +295,7 @@ class TestGradeEndpoint:
         exam_id, copy_id = _setup_processed_copy(client, cleanup_ids, unique_title)
         _inject_transcription(copy_id, "réponse test")
 
-        with patch("app.services.grading_service.OpenAI") as MockG, patch(
-            "app.services.audit_service.OpenAI"
-        ):
+        with patch("app.services.grading_service.OpenAI") as MockG, patch("app.services.audit_service.OpenAI"):
             resp = MagicMock()
             resp.choices = [MagicMock()]
             resp.choices[0].message.content = (
@@ -336,9 +320,7 @@ class TestGradeEndpoint:
             ' "justification": "ok", "criteria_details": []}'
         )
 
-        with patch("app.services.grading_service.OpenAI") as MockG, patch(
-            "app.services.audit_service.OpenAI"
-        ):
+        with patch("app.services.grading_service.OpenAI") as MockG, patch("app.services.audit_service.OpenAI"):
             MockG.return_value.chat.completions.create.return_value = mock_resp
             client.post(f"/copies/{copy_id}/grade")
             r2 = client.post(f"/copies/{copy_id}/grade?force=true")
@@ -380,9 +362,7 @@ class TestReportEndpoint:
             ' "justification": "Correct", "criteria_details": []}'
         )
 
-        with patch("app.services.grading_service.OpenAI") as MockG, patch(
-            "app.services.audit_service.OpenAI"
-        ):
+        with patch("app.services.grading_service.OpenAI") as MockG, patch("app.services.audit_service.OpenAI"):
             MockG.return_value.chat.completions.create.return_value = mock_resp
             client.post(f"/copies/{copy_id}/grade")
 
@@ -403,9 +383,10 @@ class TestReportEndpoint:
 
 class TestValidateEndpoint:
     def _get_correction_id(self, copy_id: str) -> str:
+        from uuid import UUID
+
         from app.core.database import SessionLocal
         from app.models.correction import Correction
-        from uuid import UUID
 
         db = SessionLocal()
         try:
@@ -425,9 +406,7 @@ class TestValidateEndpoint:
             ' "justification": "Illisible", "criteria_details": []}'
         )
 
-        with patch("app.services.grading_service.OpenAI") as MockG, patch(
-            "app.services.audit_service.OpenAI"
-        ):
+        with patch("app.services.grading_service.OpenAI") as MockG, patch("app.services.audit_service.OpenAI"):
             MockG.return_value.chat.completions.create.return_value = mock_resp
             client.post(f"/copies/{copy_id}/grade")
 
@@ -456,9 +435,7 @@ class TestValidateEndpoint:
             ' "justification": "ok", "criteria_details": []}'
         )
 
-        with patch("app.services.grading_service.OpenAI") as MockG, patch(
-            "app.services.audit_service.OpenAI"
-        ):
+        with patch("app.services.grading_service.OpenAI") as MockG, patch("app.services.audit_service.OpenAI"):
             MockG.return_value.chat.completions.create.return_value = mock_resp
             client.post(f"/copies/{copy_id}/grade")
 
@@ -494,9 +471,7 @@ class TestBilanEndpoint:
             ' "justification": "ok", "criteria_details": []}'
         )
 
-        with patch("app.services.grading_service.OpenAI") as MockG, patch(
-            "app.services.audit_service.OpenAI"
-        ):
+        with patch("app.services.grading_service.OpenAI") as MockG, patch("app.services.audit_service.OpenAI"):
             MockG.return_value.chat.completions.create.return_value = mock_resp
             client.post(f"/copies/{copy_id}/grade")
 

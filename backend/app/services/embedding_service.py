@@ -34,9 +34,7 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
         return []
 
     if settings.EMBEDDING_PROVIDER == "openai":
-        embeddings = _embed_openai(
-            texts, settings.EMBEDDING_MODEL, settings.EMBEDDING_DIMENSION
-        )
+        embeddings = _embed_openai(texts, settings.EMBEDDING_MODEL, settings.EMBEDDING_DIMENSION)
     elif settings.EMBEDDING_PROVIDER == "tei":
         embeddings = _embed_tei(texts, settings.TEI_ENDPOINT)
     else:
@@ -59,10 +57,7 @@ def _embed_openai(texts: list[str], model: str, dimensions: int) -> list[list[fl
     settings = get_settings()
 
     if not settings.OPENAI_API_KEY:
-        raise ValueError(
-            "OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai. "
-            "Set it in your .env file."
-        )
+        raise ValueError("OPENAI_API_KEY is required when EMBEDDING_PROVIDER=openai. " "Set it in your .env file.")
 
     client = OpenAI(api_key=settings.OPENAI_API_KEY)
     all_embeddings: list[list[float]] = []
@@ -75,9 +70,7 @@ def _embed_openai(texts: list[str], model: str, dimensions: int) -> list[list[fl
     return all_embeddings
 
 
-def _call_openai_with_retry(
-    client: OpenAI, texts: list[str], model: str, dimensions: int
-) -> list[list[float]]:
+def _call_openai_with_retry(client: OpenAI, texts: list[str], model: str, dimensions: int) -> list[list[float]]:
     """Call OpenAI embeddings with exponential backoff retry on RateLimitError."""
     for attempt in range(_MAX_RETRIES):
         try:
@@ -107,10 +100,7 @@ def _call_openai_with_retry(
 def _embed_tei(texts: list[str], endpoint: str) -> list[list[float]]:
     """Embed via Hugging Face Text Embeddings Inference (TEI) server."""
     if not endpoint:
-        raise ValueError(
-            "TEI_ENDPOINT is required when EMBEDDING_PROVIDER=tei. "
-            "Set it in your .env file."
-        )
+        raise ValueError("TEI_ENDPOINT is required when EMBEDDING_PROVIDER=tei. " "Set it in your .env file.")
 
     url = endpoint.rstrip("/") + "/embed"
 

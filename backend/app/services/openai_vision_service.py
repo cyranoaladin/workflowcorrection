@@ -13,9 +13,7 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-def call_openai_vision_for_transcription(
-    image_path: str, question_context: str
-) -> dict:
+def call_openai_vision_for_transcription(image_path: str, question_context: str) -> dict:
     settings = get_settings()
     source = "openai_vision"
 
@@ -141,11 +139,7 @@ def call_openai_vision_for_transcription(
 
         # Attach non-sensitive metadata (helps debugging & token accounting).
         try:
-            usage = (
-                resp.usage.model_dump()
-                if getattr(resp, "usage", None) is not None
-                else None
-            )
+            usage = resp.usage.model_dump() if getattr(resp, "usage", None) is not None else None
         except Exception:
             usage = None
         parsed["_openai_meta"] = {

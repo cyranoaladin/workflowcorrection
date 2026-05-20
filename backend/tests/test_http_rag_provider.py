@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import httpx
 import pytest
-
 from app.services.rag.http_provider import HttpRagProvider, RagAuthError
 
 
@@ -67,9 +66,7 @@ def test_http_rag_provider_raises_on_unauthorized() -> None:
     provider = HttpRagProvider(
         base_url="https://rag.example.test",
         token="bad-token",
-        transport=httpx.MockTransport(
-            lambda _: httpx.Response(401, json={"detail": "Unauthorized"})
-        ),
+        transport=httpx.MockTransport(lambda _: httpx.Response(401, json={"detail": "Unauthorized"})),
     )
 
     with pytest.raises(RagAuthError):

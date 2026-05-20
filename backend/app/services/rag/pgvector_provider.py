@@ -46,9 +46,7 @@ class PgvectorRagProvider:
             "top_k": top_k or settings.RAG_TOP_K,
         }
         if question_id is not None:
-            sql += (
-                " AND (chunk.question_id = :question_id OR chunk.question_id IS NULL)"
-            )
+            sql += " AND (chunk.question_id = :question_id OR chunk.question_id IS NULL)"
             params["question_id"] = question_id
         if kinds:
             sql += " AND kd.kind = ANY(:kinds)"

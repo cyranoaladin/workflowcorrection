@@ -21,21 +21,15 @@ depends_on = None
 def upgrade() -> None:
     op.create_table(
         "exams",
-        sa.Column(
-            "id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False
-        ),
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column("title", sa.Text(), nullable=False),
         sa.Column("level", sa.Text(), nullable=True),
         sa.Column("session", sa.Text(), nullable=True),
         sa.Column("subject_pdf_path", sa.Text(), nullable=True),
         sa.Column("correction_pdf_path", sa.Text(), nullable=True),
         sa.Column("rubric_pdf_path", sa.Text(), nullable=True),
-        sa.Column(
-            "rubric_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True
-        ),
-        sa.Column(
-            "total_points", sa.Numeric(), nullable=False, server_default=sa.text("20")
-        ),
+        sa.Column("rubric_json", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("total_points", sa.Numeric(), nullable=False, server_default=sa.text("20")),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -52,9 +46,7 @@ def upgrade() -> None:
 
     op.create_table(
         "student_copies",
-        sa.Column(
-            "id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False
-        ),
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column(
             "exam_id",
             postgresql.UUID(as_uuid=True),
@@ -64,9 +56,7 @@ def upgrade() -> None:
         sa.Column("student_name", sa.Text(), nullable=True),
         sa.Column("copy_code", sa.Text(), nullable=True),
         sa.Column("original_pdf_path", sa.Text(), nullable=False),
-        sa.Column(
-            "status", sa.Text(), nullable=False, server_default=sa.text("'uploaded'")
-        ),
+        sa.Column("status", sa.Text(), nullable=False, server_default=sa.text("'uploaded'")),
         sa.Column("processing_task_id", sa.Text(), nullable=True),
         sa.Column("total_score", sa.Numeric(), nullable=True),
         sa.Column("confidence", sa.Numeric(), nullable=True),
@@ -88,9 +78,7 @@ def upgrade() -> None:
 
     op.create_table(
         "copy_pages",
-        sa.Column(
-            "id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False
-        ),
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column(
             "copy_id",
             postgresql.UUID(as_uuid=True),
@@ -119,9 +107,7 @@ def upgrade() -> None:
 
     op.create_table(
         "transcriptions",
-        sa.Column(
-            "id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False
-        ),
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column(
             "copy_id",
             postgresql.UUID(as_uuid=True),
@@ -158,9 +144,7 @@ def upgrade() -> None:
 
     op.create_table(
         "corrections",
-        sa.Column(
-            "id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False
-        ),
+        sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
         sa.Column(
             "copy_id",
             postgresql.UUID(as_uuid=True),

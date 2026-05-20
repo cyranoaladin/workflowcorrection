@@ -37,9 +37,7 @@ def upgrade() -> None:
         sa.Column("source_path", sa.Text(), nullable=False),
         sa.Column("content_hash", sa.Text(), nullable=False),
         sa.Column("title", sa.Text(), nullable=True),
-        sa.Column(
-            "metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False
-        ),
+        sa.Column("metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -73,9 +71,7 @@ def upgrade() -> None:
         sa.Column("latex", sa.Text(), nullable=True),
         sa.Column("question_id", sa.Text(), nullable=True),
         sa.Column("tokens", sa.Integer(), nullable=True),
-        sa.Column(
-            "metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False
-        ),
+        sa.Column("metadata", JSONB, server_default=sa.text("'{}'::jsonb"), nullable=False),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -85,17 +81,11 @@ def upgrade() -> None:
     )
 
     # Add the vector column via raw SQL (dimension configured at runtime, default 1536)
-    op.execute(
-        "ALTER TABLE knowledge_chunks ADD COLUMN embedding vector(1536) NOT NULL"
-    )
+    op.execute("ALTER TABLE knowledge_chunks ADD COLUMN embedding vector(1536) NOT NULL")
 
     # Indexes
-    op.create_index(
-        "ix_knowledge_chunks_document_id", "knowledge_chunks", ["document_id"]
-    )
-    op.create_index(
-        "ix_knowledge_chunks_question_id", "knowledge_chunks", ["question_id"]
-    )
+    op.create_index("ix_knowledge_chunks_document_id", "knowledge_chunks", ["document_id"])
+    op.create_index("ix_knowledge_chunks_question_id", "knowledge_chunks", ["question_id"])
     op.execute(
         "CREATE INDEX ix_knowledge_chunks_embedding_hnsw ON knowledge_chunks "
         "USING hnsw (embedding vector_cosine_ops)"

@@ -25,10 +25,7 @@ def call_azure_read(image_path: str) -> dict:
             "confidence": 0,
             "error_message": "paid_calls_disabled",
         }
-    if (
-        not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
-        or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY
-    ):
+    if not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
         return {
             "source": source,
             "status": "error",
@@ -75,9 +72,7 @@ def call_azure_read(image_path: str) -> dict:
                     "error_message": f"azure_http_{r.status_code}",
                 }
 
-            op_loc = r.headers.get("Operation-Location") or r.headers.get(
-                "operation-location"
-            )
+            op_loc = r.headers.get("Operation-Location") or r.headers.get("operation-location")
             if not op_loc:
                 return {
                     "source": source,

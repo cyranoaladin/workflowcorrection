@@ -176,7 +176,7 @@ def _persist_chunks(
     texts = [c.text for c in chunks]
     embeddings = embed_texts(texts)
 
-    for chunk, embedding in zip(chunks, embeddings):
+    for chunk, embedding in zip(chunks, embeddings, strict=False):
         db.add(
             KnowledgeChunk(
                 document_id=doc.id,

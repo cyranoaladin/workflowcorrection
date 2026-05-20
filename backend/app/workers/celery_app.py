@@ -23,5 +23,5 @@ celery.conf.update(
 )
 
 # Ensure task modules are imported so tasks are registered.
-import app.workers.tasks  # noqa: E402,F401
 import app.workers.embed_tasks  # noqa: E402,F401
+import app.workers.tasks  # noqa: E402,F401

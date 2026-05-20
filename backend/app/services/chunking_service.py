@@ -60,9 +60,7 @@ def chunk_rubric_json(rubric: dict) -> list[Chunk]:
         chunks.append(
             Chunk(
                 text=text,
-                latex=expected
-                if "$" in str(expected) or "\\" in str(expected)
-                else None,
+                latex=expected if "$" in str(expected) or "\\" in str(expected) else None,
                 question_id=qid,
                 chunk_index=i,
                 tokens=_count_tokens(text),
@@ -72,9 +70,7 @@ def chunk_rubric_json(rubric: dict) -> list[Chunk]:
     return chunks
 
 
-def chunk_correction_pdf(
-    text_per_page: list[str], rubric_questions: list[dict]
-) -> list[Chunk]:
+def chunk_correction_pdf(text_per_page: list[str], rubric_questions: list[dict]) -> list[Chunk]:
     """Chunk a correction PDF by question using heuristic regex matching.
 
     Tries to split the full text into sections per question based on patterns like
@@ -103,9 +99,7 @@ def chunk_correction_pdf(
         question_id = _match_question_id(q_num, q_ids)
 
         # Extract LaTeX fragments
-        latex_frags = re.findall(
-            r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", section, re.DOTALL
-        )
+        latex_frags = re.findall(r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", section, re.DOTALL)
         latex = "\n".join(latex_frags) if latex_frags else None
 
         chunks.append(
@@ -150,9 +144,7 @@ def chunk_generic_pdf(
         if current_tokens + para_tokens > max_tokens and current_parts:
             # Flush current chunk
             chunk_text = "\n\n".join(current_parts)
-            latex_frags = re.findall(
-                r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL
-            )
+            latex_frags = re.findall(r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL)
             chunks.append(
                 Chunk(
                     text=chunk_text,
@@ -175,9 +167,7 @@ def chunk_generic_pdf(
     # Final chunk
     if current_parts:
         chunk_text = "\n\n".join(current_parts)
-        latex_frags = re.findall(
-            r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL
-        )
+        latex_frags = re.findall(r"\$[^$]+\$|\\\[.+?\\\]|\\\(.+?\\\)", chunk_text, re.DOTALL)
         chunks.append(
             Chunk(
                 text=chunk_text,

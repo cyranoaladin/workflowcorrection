@@ -12,9 +12,7 @@ from app.services.rag.factory import get_rag_provider
 logger = logging.getLogger(__name__)
 
 
-def grade_question(
-    question_id: str, rubric: dict, transcription: str, exam_id: str | None = None
-) -> dict:
+def grade_question(question_id: str, rubric: dict, transcription: str, exam_id: str | None = None) -> dict:
     """
     Grade a single question using LLM.
 
@@ -61,14 +59,8 @@ def grade_question(
     expected = rubric.get("expected_answer", "")
     label = rubric.get("label", question_id)
 
-    criteria_text = (
-        "\n".join(f"- {c}" for c in criteria)
-        if criteria
-        else "- Réponse correcte et complète"
-    )
-    expected_text = (
-        f"\nRéponse attendue / corrigé type :\n{expected}" if expected else ""
-    )
+    criteria_text = "\n".join(f"- {c}" for c in criteria) if criteria else "- Réponse correcte et complète"
+    expected_text = f"\nRéponse attendue / corrigé type :\n{expected}" if expected else ""
     rag_context = ""
     if exam_id:
         try:
@@ -80,12 +72,8 @@ def grade_question(
                 kinds=["correction", "rubric"],
             )
             if chunks:
-                rag_context = (
-                    "\n\nExtraits du corrigé/barème via RAG :\n"
-                    + "\n\n".join(
-                        f"[{chunk.kind} score={chunk.score:.3f}]\n{chunk.text}"
-                        for chunk in chunks
-                    )
+                rag_context = "\n\nExtraits du corrigé/barème via RAG :\n" + "\n\n".join(
+                    f"[{chunk.kind} score={chunk.score:.3f}]\n{chunk.text}" for chunk in chunks
                 )
         except Exception as exc:
             logger.warning(
@@ -173,9 +161,7 @@ Retourne un JSON avec exactement ce format :
             "error_message": f"invalid_llm_json: {e}",
         }
     except Exception as e:
-        logger.exception(
-            "grading_service: LLM call failed for question %s", question_id
-        )
+        logger.exception("grading_service: LLM call failed for question %s", question_id)
         return {
             "question_id": question_id,
             "points_max": points_max,

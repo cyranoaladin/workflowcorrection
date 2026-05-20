@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import uuid
 import shutil
+import uuid
 from decimal import Decimal
 from uuid import UUID
 
 from celery.utils.log import get_task_logger
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
 from app.core.config import get_settings
+from app.core.database import SessionLocal
 from app.core.storage import get_storage
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.correction import Correction
@@ -26,9 +26,7 @@ logger = get_task_logger(__name__)
 
 def enforce_pdf_page_limit(*, page_count: int, max_pages: int) -> None:
     if page_count > max_pages:
-        raise ValueError(
-            f"too_many_pages: PDF has {page_count} pages, limit is {max_pages}"
-        )
+        raise ValueError(f"too_many_pages: PDF has {page_count} pages, limit is {max_pages}")
 
 
 def _load_pdf_module():
@@ -78,9 +76,7 @@ def process_copy(self, copy_id: str, force: bool = False) -> dict:
                     shutil.rmtree(page_dir, ignore_errors=True)
                 except Exception:
                     logger.warning("Failed to delete page dir for %s", page.id)
-            db.query(CopyPage).filter(CopyPage.copy_id == copy_uuid).delete(
-                synchronize_session=False
-            )
+            db.query(CopyPage).filter(CopyPage.copy_id == copy_uuid).delete(synchronize_session=False)
             db.commit()
 
         copy.status = CopyStatus.processing.value
@@ -96,9 +92,7 @@ def process_copy(self, copy_id: str, force: bool = False) -> dict:
         fitz = _load_pdf_module()
         doc = fitz.open(str(pdf_abs))
         page_count = doc.page_count
-        enforce_pdf_page_limit(
-            page_count=page_count, max_pages=int(settings.PDF_MAX_PAGES)
-        )
+        enforce_pdf_page_limit(page_count=page_count, max_pages=int(settings.PDF_MAX_PAGES))
         try:
             for idx in range(page_count):
                 page_number = idx + 1
@@ -191,32 +185,23 @@ def grade_copy_task(self, copy_id: str, force: bool = False) -> dict:
             .all()
         )
         full_transcription = "\n\n".join(
-            t.final_text or t.raw_text or ""
-            for t in transcriptions
-            if (t.final_text or t.raw_text)
+            t.final_text or t.raw_text or "" for t in transcriptions if (t.final_text or t.raw_text)
         )
         if not full_transcription.strip():
             return {"status": "error", "reason": "no_transcription"}
 
         if force:
-            db.query(Correction).filter(Correction.copy_id == copy_uuid).delete(
-                synchronize_session=False
-            )
+            db.query(Correction).filter(Correction.copy_id == copy_uuid).delete(synchronize_session=False)
             db.commit()
 
         grading_results: list[dict] = []
         for q in rubric_questions:
             qid = str(q.get("id", "unknown"))
             self.update_state(state="PROGRESS", meta={"grading_question": qid})
-            result = grade_question(
-                qid, q, full_transcription, exam_id=str(copy.exam_id)
-            )
+            result = grade_question(qid, q, full_transcription, exam_id=str(copy.exam_id))
             grading_results.append(result)
 
-            if (
-                result.get("status") == "ok"
-                and result.get("points_awarded") is not None
-            ):
+            if result.get("status") == "ok" and result.get("points_awarded") is not None:
                 corr = Correction(
                     copy_id=copy_uuid,
                     question_id=qid,

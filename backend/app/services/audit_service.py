@@ -11,9 +11,7 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-def audit_correction(
-    corrections: list[dict], total_points: float, rubric_questions: list[dict]
-) -> dict:
+def audit_correction(corrections: list[dict], total_points: float, rubric_questions: list[dict]) -> dict:
     """
     Audit the consistency and fairness of grading results using LLM.
 
@@ -47,27 +45,19 @@ def audit_correction(
 
     for c in corrections:
         if c.get("status") == "error":
-            flags.append(
-                f"grading_error on {c.get('question_id')}: {c.get('error_message')}"
-            )
+            flags.append(f"grading_error on {c.get('question_id')}: {c.get('error_message')}")
         if c.get("needs_human_review"):
             flags.append(f"human_review_needed: {c.get('question_id')}")
         if c.get("confidence", 1.0) < 0.5:
-            flags.append(
-                f"low_confidence on {c.get('question_id')}: {c.get('confidence'):.2f}"
-            )
+            flags.append(f"low_confidence on {c.get('question_id')}: {c.get('confidence'):.2f}")
 
-    missing_ids = {q.get("id") for q in rubric_questions} - {
-        c.get("question_id") for c in corrections
-    }
+    missing_ids = {q.get("id") for q in rubric_questions} - {c.get("question_id") for c in corrections}
     for mid in missing_ids:
         flags.append(f"missing_grade: question {mid} not graded")
 
     needs_human_review = bool(flags)
     overall_confidence = (
-        sum(c.get("confidence", 0) or 0 for c in corrections) / len(corrections)
-        if corrections
-        else 0.0
+        sum(c.get("confidence", 0) or 0 for c in corrections) / len(corrections) if corrections else 0.0
     )
 
     if not settings.OPENAI_API_KEY or not corrections:

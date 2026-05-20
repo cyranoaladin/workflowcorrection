@@ -43,9 +43,10 @@ def test_grade_question_injects_rag_context_before_llm_call(monkeypatch) -> None
         )
     ]
 
-    with patch(
-        "app.services.grading_service.get_rag_provider", return_value=provider
-    ), patch("app.services.grading_service.OpenAI") as openai_cls:
+    with (
+        patch("app.services.grading_service.get_rag_provider", return_value=provider),
+        patch("app.services.grading_service.OpenAI") as openai_cls,
+    ):
         openai_cls.return_value.chat.completions.create.return_value = response
         result = grade_question(
             "Q1",
@@ -55,8 +56,6 @@ def test_grade_question_injects_rag_context_before_llm_call(monkeypatch) -> None
         )
 
     provider.retrieve.assert_called_once()
-    messages = openai_cls.return_value.chat.completions.create.call_args.kwargs[
-        "messages"
-    ]
+    messages = openai_cls.return_value.chat.completions.create.call_args.kwargs["messages"]
     assert "Corrige expert" in messages[1]["content"]
     assert result["points_awarded"] == 2

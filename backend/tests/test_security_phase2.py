@@ -5,7 +5,6 @@ All new routes must be protected by admin token.
 
 from __future__ import annotations
 
-
 NEW_PROTECTED_ROUTES = [
     ("POST", "/exams/00000000-0000-0000-0000-000000000000/rubric-json"),
     ("PATCH", "/exams/00000000-0000-0000-0000-000000000000"),
@@ -28,9 +27,7 @@ class TestPhase2AuthProtection:
                 r = anon_client.patch(path, json={})
             else:
                 continue
-            assert (
-                r.status_code == 401
-            ), f"{method} {path} should return 401 but got {r.status_code}"
+            assert r.status_code == 401, f"{method} {path} should return 401 but got {r.status_code}"
             detail = r.json().get("detail", {})
             assert (
                 detail.get("error") == "missing_admin_token"
@@ -47,9 +44,7 @@ class TestPhase2AuthProtection:
                 r = anon_client.patch(path, json={}, headers=headers)
             else:
                 continue
-            assert (
-                r.status_code == 401
-            ), f"{method} {path} with wrong token should return 401 but got {r.status_code}"
+            assert r.status_code == 401, f"{method} {path} with wrong token should return 401 but got {r.status_code}"
 
     def test_phase2_routes_accept_valid_token(self, client):
         """With valid token, routes return 404/422/409 — never 401."""
@@ -62,12 +57,8 @@ class TestPhase2AuthProtection:
                 r = client.patch(path, json={})
             else:
                 continue
-            assert (
-                r.status_code != 401
-            ), f"{method} {path} with valid token returned 401 unexpectedly"
-            assert (
-                r.status_code != 403
-            ), f"{method} {path} with valid token returned 403 unexpectedly"
+            assert r.status_code != 401, f"{method} {path} with valid token returned 401 unexpectedly"
+            assert r.status_code != 403, f"{method} {path} with valid token returned 403 unexpectedly"
 
     def test_health_still_public(self, anon_client):
         assert anon_client.get("/health").status_code == 200

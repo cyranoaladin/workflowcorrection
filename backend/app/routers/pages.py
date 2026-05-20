@@ -21,11 +21,7 @@ router = APIRouter(prefix="/pages", tags=["pages"])
 
 
 def _resolve_page_image(page: CopyPage, image_type: str) -> str:
-    rel = (
-        page.original_image_path
-        if image_type == "original"
-        else page.processed_image_path
-    )
+    rel = page.original_image_path if image_type == "original" else page.processed_image_path
     if not rel:
         raise HTTPException(status_code=404, detail="Image not available")
 
@@ -59,17 +55,12 @@ def get_page_image(
 
 
 @router.get("/{page_id}/transcriptions", response_model=list[TranscriptionRead])
-def list_page_transcriptions(
-    page_id: UUID, db: Session = Depends(get_db)
-) -> list[Transcription]:
+def list_page_transcriptions(page_id: UUID, db: Session = Depends(get_db)) -> list[Transcription]:
     page = db.get(CopyPage, page_id)
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
     return (
-        db.query(Transcription)
-        .filter(Transcription.page_id == page_id)
-        .order_by(Transcription.created_at.desc())
-        .all()
+        db.query(Transcription).filter(Transcription.page_id == page_id).order_by(Transcription.created_at.desc()).all()
     )
 
 
@@ -150,10 +141,7 @@ def ocr_azure(
     settings = get_settings()
     _guard_paid_calls_enabled()
     _guard_paid_call_confirmed(confirm_paid_call)
-    if (
-        not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT
-        or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY
-    ):
+    if not settings.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT or not settings.AZURE_DOCUMENT_INTELLIGENCE_KEY:
         raise HTTPException(
             status_code=400,
             detail={

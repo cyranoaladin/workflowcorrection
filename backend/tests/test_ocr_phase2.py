@@ -88,9 +88,7 @@ def test_fusion_without_inputs_returns_error(client, unique_title, cleanup_ids):
     assert "no_transcriptions" in str(r.json())
 
 
-def test_ocr_endpoints_blocked_when_paid_calls_disabled(
-    client, unique_title, cleanup_ids
-):
+def test_ocr_endpoints_blocked_when_paid_calls_disabled(client, unique_title, cleanup_ids):
     _, page_id = _create_processed_copy(client, cleanup_ids, unique_title)
 
     r1 = client.post(f"/pages/{page_id}/ocr/mathpix")
@@ -103,9 +101,7 @@ def test_ocr_endpoints_blocked_when_paid_calls_disabled(
     assert r3.status_code == 403
 
 
-def test_missing_keys_errors_when_paid_calls_enabled(
-    client, unique_title, cleanup_ids, monkeypatch
-):
+def test_missing_keys_errors_when_paid_calls_enabled(client, unique_title, cleanup_ids, monkeypatch):
     _, page_id = _create_processed_copy(client, cleanup_ids, unique_title)
 
     monkeypatch.setenv("OCR_ENABLE_PAID_CALLS", "true")
@@ -133,9 +129,7 @@ def test_missing_keys_errors_when_paid_calls_enabled(
     assert "missing_openai_api_key" in str(r3.json())
 
 
-def test_page_ocr_requires_confirmation_when_paid_calls_enabled(
-    client, unique_title, cleanup_ids, monkeypatch
-):
+def test_page_ocr_requires_confirmation_when_paid_calls_enabled(client, unique_title, cleanup_ids, monkeypatch):
     monkeypatch.setenv("OCR_ENABLE_PAID_CALLS", "true")
     monkeypatch.setenv("MATHPIX_APP_ID", "id")
     monkeypatch.setenv("MATHPIX_APP_KEY", "key")
@@ -149,9 +143,7 @@ def test_page_ocr_requires_confirmation_when_paid_calls_enabled(
     assert "confirmation_required" in str(r.json())
 
 
-def test_copy_ocr_max_pages_limit_enforced(
-    client, unique_title, cleanup_ids, monkeypatch
-):
+def test_copy_ocr_max_pages_limit_enforced(client, unique_title, cleanup_ids, monkeypatch):
     copy_id, _ = _create_processed_copy(client, cleanup_ids, unique_title)
 
     monkeypatch.setenv("OCR_ENABLE_PAID_CALLS", "true")
@@ -166,9 +158,7 @@ def test_copy_ocr_max_pages_limit_enforced(
     assert "max_pages_exceeds_limit" in str(r.json())
 
 
-def test_copy_ocr_requires_confirmation_when_paid_calls_enabled(
-    client, unique_title, cleanup_ids, monkeypatch
-):
+def test_copy_ocr_requires_confirmation_when_paid_calls_enabled(client, unique_title, cleanup_ids, monkeypatch):
     copy_id, _ = _create_processed_copy(client, cleanup_ids, unique_title)
 
     monkeypatch.setenv("OCR_ENABLE_PAID_CALLS", "true")

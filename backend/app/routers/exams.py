@@ -8,13 +8,12 @@ from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadF
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.storage import StorageError, get_storage
 from app.core.upload_validation import UploadValidationError, validate_pdf_upload
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.exam import Exam
 from app.schemas.exam_schema import ExamCreate, ExamRead, ExamUpdate
-
-from app.core.database import get_db
 
 router = APIRouter(prefix="/exams", tags=["exams"])
 
@@ -61,9 +60,7 @@ def upload_exam_files(
         try:
             validate_pdf_upload(subject_pdf)
         except UploadValidationError as e:
-            raise HTTPException(
-                status_code=415, detail={"error": e.code, "message": e.message}
-            )
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
         try:
             stored = storage.save_upload(
                 subject_pdf,
@@ -71,18 +68,14 @@ def upload_exam_files(
                 max_bytes=settings.max_upload_bytes,
             )
         except StorageError as e:
-            raise HTTPException(
-                status_code=413, detail={"error": "upload_error", "message": str(e)}
-            )
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
         exam.subject_pdf_path = stored.relative_path
 
     if correction_pdf is not None:
         try:
             validate_pdf_upload(correction_pdf)
         except UploadValidationError as e:
-            raise HTTPException(
-                status_code=415, detail={"error": e.code, "message": e.message}
-            )
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
         try:
             stored = storage.save_upload(
                 correction_pdf,
@@ -90,18 +83,14 @@ def upload_exam_files(
                 max_bytes=settings.max_upload_bytes,
             )
         except StorageError as e:
-            raise HTTPException(
-                status_code=413, detail={"error": "upload_error", "message": str(e)}
-            )
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
         exam.correction_pdf_path = stored.relative_path
 
     if rubric_pdf is not None:
         try:
             validate_pdf_upload(rubric_pdf)
         except UploadValidationError as e:
-            raise HTTPException(
-                status_code=415, detail={"error": e.code, "message": e.message}
-            )
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
         try:
             stored = storage.save_upload(
                 rubric_pdf,
@@ -109,9 +98,7 @@ def upload_exam_files(
                 max_bytes=settings.max_upload_bytes,
             )
         except StorageError as e:
-            raise HTTPException(
-                status_code=413, detail={"error": "upload_error", "message": str(e)}
-            )
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
         exam.rubric_pdf_path = stored.relative_path
 
     if rubric_tex is not None and rubric_tex.strip():
@@ -283,11 +270,9 @@ def import_students_csv(
     skipped = 0
     errors: list[dict] = []
 
-    for i, row in enumerate(reader, start=2):
+    for _i, row in enumerate(reader, start=2):
         clean = {
-            (k or "").strip().lower(): str(v).strip()
-            if v is not None and not isinstance(v, list)
-            else ""
+            (k or "").strip().lower(): str(v).strip() if v is not None and not isinstance(v, list) else ""
             for k, v in row.items()
         }
 

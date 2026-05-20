@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-
 # ─────────────────────────────────────────────────────────────────────────────
 # grading_service
 # ─────────────────────────────────────────────────────────────────────────────
@@ -22,9 +21,7 @@ class TestGradingService:
 
         from app.services.grading_service import grade_question
 
-        result = grade_question(
-            "Q1", {"id": "Q1", "label": "Test", "points_max": 4}, "some transcription"
-        )
+        result = grade_question("Q1", {"id": "Q1", "label": "Test", "points_max": 4}, "some transcription")
 
         assert result["status"] == "error"
         assert result["error_message"] == "missing_openai_api_key"
@@ -48,9 +45,7 @@ class TestGradingService:
             MockClient.return_value.chat.completions.create.return_value = fake_response
             from app.services.grading_service import grade_question
 
-            result = grade_question(
-                "Q1", {"id": "Q1", "label": "Test", "points_max": 4}, "text"
-            )
+            result = grade_question("Q1", {"id": "Q1", "label": "Test", "points_max": 4}, "text")
 
         assert result["status"] == "ok"
         assert result["points_awarded"] == 4.0  # clamped to points_max
@@ -72,9 +67,7 @@ class TestGradingService:
             MockClient.return_value.chat.completions.create.return_value = fake_response
             from app.services.grading_service import grade_question
 
-            result = grade_question(
-                "Q1", {"id": "Q1", "label": "Dériver", "points_max": 4}, "f'(x) = 2x"
-            )
+            result = grade_question("Q1", {"id": "Q1", "label": "Dériver", "points_max": 4}, "f'(x) = 2x")
 
         assert result["status"] == "ok"
         assert result["points_awarded"] == 3.5
@@ -97,9 +90,7 @@ class TestGradingService:
             MockClient.return_value.chat.completions.create.return_value = fake_response
             from app.services.grading_service import grade_question
 
-            result = grade_question(
-                "Q1", {"id": "Q1", "label": "T", "points_max": 2}, "text"
-            )
+            result = grade_question("Q1", {"id": "Q1", "label": "T", "points_max": 2}, "text")
 
         assert result["status"] == "error"
         assert "invalid_llm_json" in result["error_message"]
@@ -112,14 +103,10 @@ class TestGradingService:
         get_settings.cache_clear()
 
         with patch("app.services.grading_service.OpenAI") as MockClient:
-            MockClient.return_value.chat.completions.create.side_effect = RuntimeError(
-                "network error"
-            )
+            MockClient.return_value.chat.completions.create.side_effect = RuntimeError("network error")
             from app.services.grading_service import grade_question
 
-            result = grade_question(
-                "Q1", {"id": "Q1", "label": "T", "points_max": 5}, "text"
-            )
+            result = grade_question("Q1", {"id": "Q1", "label": "T", "points_max": 5}, "text")
 
         assert result["status"] == "error"
         assert "RuntimeError" in result["error_message"]
@@ -141,9 +128,7 @@ class TestGradingService:
             MockClient.return_value.chat.completions.create.return_value = fake_response
             from app.services.grading_service import grade_question
 
-            result = grade_question(
-                "Q0", {"id": "Q0", "label": "Bonus", "points_max": 0}, "text"
-            )
+            result = grade_question("Q0", {"id": "Q0", "label": "Bonus", "points_max": 0}, "text")
 
         assert result["status"] == "ok"
         assert result["points_awarded"] == 0.0
@@ -170,9 +155,7 @@ class TestGradingService:
             MockClient.return_value.chat.completions.create.side_effect = capture_call
             from app.services.grading_service import grade_question
 
-            grade_question(
-                "Q1", {"id": "Q1", "label": "T", "points_max": 2}, "X" * 5000
-            )
+            grade_question("Q1", {"id": "Q1", "label": "T", "points_max": 2}, "X" * 5000)
 
         assert len(captured.get("prompt", "")) < 4500  # truncated
 
@@ -219,9 +202,7 @@ class TestGradingService:
 
 
 class TestAuditService:
-    def _ok_correction(
-        self, qid="Q1", points_max=4.0, points_awarded=3.0, confidence=0.9
-    ):
+    def _ok_correction(self, qid="Q1", points_max=4.0, points_awarded=3.0, confidence=0.9):
         return {
             "question_id": qid,
             "points_max": points_max,
@@ -326,9 +307,7 @@ class TestAuditService:
 
         from app.services.audit_service import audit_correction
 
-        result = audit_correction(
-            corrections=[], total_points=20.0, rubric_questions=[]
-        )
+        result = audit_correction(corrections=[], total_points=20.0, rubric_questions=[])
         assert result["overall_confidence"] == 0.0
         assert result["status"] == "ok"
 
@@ -342,7 +321,9 @@ class TestAuditService:
         fake_response.choices = [MagicMock()]
         fake_response.choices[
             0
-        ].message.content = '{"audit_passed": true, "additional_flags": [], "summary": "OK", "recommendation": "validate"}'
+        ].message.content = (
+            '{"audit_passed": true, "additional_flags": [], "summary": "OK", "recommendation": "validate"}'
+        )
 
         with patch("app.services.audit_service.OpenAI") as MockClient:
             MockClient.return_value.chat.completions.create.return_value = fake_response

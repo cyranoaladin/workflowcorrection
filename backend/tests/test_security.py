@@ -15,9 +15,7 @@ def test_business_routes_require_admin_token(anon_client):
 
 
 def test_business_routes_reject_wrong_admin_token(anon_client):
-    r = anon_client.get(
-        "/integrations/status", headers={"Authorization": "Bearer wrong"}
-    )
+    r = anon_client.get("/integrations/status", headers={"Authorization": "Bearer wrong"})
     assert r.status_code == 401
     assert r.json()["detail"]["error"] == "invalid_admin_token"
 

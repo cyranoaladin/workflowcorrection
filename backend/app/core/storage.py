@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import BinaryIO
 
 from fastapi import UploadFile
 
@@ -39,9 +39,7 @@ class LocalStorage:
     def resolve(self, relative_path: str) -> Path:
         return self._safe_join(relative_path)
 
-    def save_upload(
-        self, upload: UploadFile, relative_path: str, *, max_bytes: int | None = None
-    ) -> StoredFile:
+    def save_upload(self, upload: UploadFile, relative_path: str, *, max_bytes: int | None = None) -> StoredFile:
         dest = self._safe_join(relative_path)
         dest.parent.mkdir(parents=True, exist_ok=True)
         written = 0
@@ -90,7 +88,7 @@ class LocalStorage:
         return self._safe_join(relative_path).exists()
 
 
-_storage: Optional[LocalStorage] = None
+_storage: LocalStorage | None = None
 
 
 def get_storage() -> LocalStorage:
@@ -99,9 +97,7 @@ def get_storage() -> LocalStorage:
         settings = get_settings()
         if settings.STORAGE_BACKEND != "local":
             # MVP: only local implemented
-            raise StorageError(
-                f"Unsupported STORAGE_BACKEND={settings.STORAGE_BACKEND} (MVP supports local only)"
-            )
+            raise StorageError(f"Unsupported STORAGE_BACKEND={settings.STORAGE_BACKEND} (MVP supports local only)")
         _storage = LocalStorage(settings.LOCAL_STORAGE_PATH)
         _storage.ensure_base_dirs()
     return _storage

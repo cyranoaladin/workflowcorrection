@@ -4,9 +4,7 @@ from uuid import UUID
 
 
 def test_create_and_list_exams(client, unique_title, cleanup_ids):
-    r = client.post(
-        "/exams", json={"title": unique_title, "level": "test", "session": "2026"}
-    )
+    r = client.post("/exams", json={"title": unique_title, "level": "test", "session": "2026"})
     assert r.status_code == 200
     exam = r.json()
     exam_id = UUID(exam["id"])

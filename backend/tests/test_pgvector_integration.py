@@ -49,12 +49,11 @@ def test_pgvector_retrieve_orders_by_cosine_similarity() -> None:
         db.commit()
 
         settings = type("Settings", (), {"RAG_TOP_K": 5, "RAG_MIN_SCORE": -1.0})()
-        with patch(
-            "app.services.rag_service.embed_texts", return_value=[[1.0] + [0.0] * 1535]
-        ), patch("app.services.rag_service.get_settings", return_value=settings):
-            chunks = retrieve(
-                db=db, exam_id=exam.id, question_id="Q1", query="synthetic", top_k=3
-            )
+        with (
+            patch("app.services.rag_service.embed_texts", return_value=[[1.0] + [0.0] * 1535]),
+            patch("app.services.rag_service.get_settings", return_value=settings),
+        ):
+            chunks = retrieve(db=db, exam_id=exam.id, question_id="Q1", query="synthetic", top_k=3)
 
         assert [chunk.text for chunk in chunks[:3]] == ["best", "second", "third"]
     finally:

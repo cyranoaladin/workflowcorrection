@@ -42,21 +42,13 @@ class TestChunkRubricJson:
         assert chunks == []
 
     def test_rubric_no_expected_answer(self):
-        rubric = {
-            "questions": [
-                {"id": "Q1", "label": "Question", "points_max": 2, "criteria": []}
-            ]
-        }
+        rubric = {"questions": [{"id": "Q1", "label": "Question", "points_max": 2, "criteria": []}]}
         chunks = chunk_rubric_json(rubric)
         assert len(chunks) == 1
         assert chunks[0].latex is None
 
     def test_chunk_index_assigned(self):
-        rubric = {
-            "questions": [
-                {"id": f"Q{i}", "label": f"Q{i}", "points_max": 1} for i in range(5)
-            ]
-        }
+        rubric = {"questions": [{"id": f"Q{i}", "label": f"Q{i}", "points_max": 1} for i in range(5)]}
         chunks = chunk_rubric_json(rubric)
         assert [c.chunk_index for c in chunks] == [0, 1, 2, 3, 4]
 

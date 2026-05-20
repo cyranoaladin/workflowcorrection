@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import List, Literal
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # App
     APP_ENV: str = "development"
@@ -21,9 +19,7 @@ class Settings(BaseSettings):
 
     # Database
     POSTGRES_PASSWORD: str = ""
-    DATABASE_URL: str = Field(
-        default="postgresql+psycopg2://correction_user:change_me@postgres:5432/correction_db"
-    )
+    DATABASE_URL: str = Field(default="postgresql+psycopg2://correction_user:change_me@postgres:5432/correction_db")
 
     # Redis / Celery
     REDIS_URL: str = "redis://localhost:6379/0"
@@ -82,7 +78,7 @@ class Settings(BaseSettings):
     CORS_ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     @property
-    def cors_allowed_origins(self) -> List[str]:
+    def cors_allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.CORS_ALLOWED_ORIGINS.split(",") if o.strip()]
 
     @property
@@ -110,22 +106,14 @@ class Settings(BaseSettings):
         unsafe_secret("ADMIN_API_TOKEN", self.ADMIN_API_TOKEN, min_len=32)
         unsafe_secret("JWT_SECRET", self.JWT_SECRET, min_len=32)
         unsafe_secret("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD, min_len=16)
-        if (
-            "change_me" in self.DATABASE_URL.lower()
-            or "replace_with" in self.DATABASE_URL.lower()
-        ):
+        if "change_me" in self.DATABASE_URL.lower() or "replace_with" in self.DATABASE_URL.lower():
             problems.append("DATABASE_URL")
         if any(
-            origin.startswith("http://")
-            or "localhost" in origin
-            or "127.0.0.1" in origin
+            origin.startswith("http://") or "localhost" in origin or "127.0.0.1" in origin
             for origin in self.cors_allowed_origins
         ):
             problems.append("CORS_ALLOWED_ORIGINS")
-        if (
-            self.PUBLIC_API_BASE_URL.startswith("http://")
-            or "localhost" in self.PUBLIC_API_BASE_URL
-        ):
+        if self.PUBLIC_API_BASE_URL.startswith("http://") or "localhost" in self.PUBLIC_API_BASE_URL:
             problems.append("PUBLIC_API_BASE_URL")
         if self.RAG_PROVIDER == "http":
             unsafe_secret("RAG_HTTP_API_TOKEN", self.RAG_HTTP_API_TOKEN, min_len=16)

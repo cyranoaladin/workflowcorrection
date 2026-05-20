@@ -3,8 +3,7 @@ from __future__ import annotations
 import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi import Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 

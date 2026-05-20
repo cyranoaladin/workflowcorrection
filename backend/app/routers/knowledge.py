@@ -43,9 +43,7 @@ class KnowledgeListResponse(BaseModel):
 @router.post("/{exam_id}/embed", response_model=EmbedResponse)
 def embed_exam(
     exam_id: UUID,
-    force: bool = Query(
-        False, description="Re-embed even if documents haven't changed"
-    ),
+    force: bool = Query(False, description="Re-embed even if documents haven't changed"),
     db: Session = Depends(get_db),
 ) -> EmbedResponse:
     """Launch embedding of all exam documents into the knowledge base.
@@ -74,9 +72,7 @@ def _build_embed_response(task) -> EmbedResponse:
 
 
 @router.get("/{exam_id}/knowledge", response_model=KnowledgeListResponse)
-def list_knowledge(
-    exam_id: UUID, db: Session = Depends(get_db)
-) -> KnowledgeListResponse:
+def list_knowledge(exam_id: UUID, db: Session = Depends(get_db)) -> KnowledgeListResponse:
     """List all knowledge documents and their status for an exam."""
     exam = db.get(Exam, exam_id)
     if not exam:
@@ -85,10 +81,7 @@ def list_knowledge(
     docs_with_count = (
         db.query(KnowledgeDocument, func.count(KnowledgeChunk.id).label("chunk_count"))
         .outerjoin(KnowledgeChunk)
-        .filter(
-            (KnowledgeDocument.exam_id == exam_id)
-            | (KnowledgeDocument.exam_id.is_(None))
-        )
+        .filter((KnowledgeDocument.exam_id == exam_id) | (KnowledgeDocument.exam_id.is_(None)))
         .group_by(KnowledgeDocument.id)
         .order_by(KnowledgeDocument.created_at.desc())
         .all()

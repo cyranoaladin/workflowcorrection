@@ -46,39 +46,25 @@ class KnowledgeDocument(TimestampMixin, Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     exam_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("exams.id", ondelete="CASCADE"), nullable=True
     )
-    owner_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True
-    )
+    owner_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     source_path: Mapped[str] = mapped_column(Text, nullable=False)
     content_hash: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str | None] = mapped_column(Text, nullable=True)
-    metadata_: Mapped[dict[str, Any]] = mapped_column(
-        "metadata", JSONB, server_default="'{}'::jsonb", nullable=False
-    )
+    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, server_default="'{}'::jsonb", nullable=False)
 
-    chunks: Mapped[list["KnowledgeChunk"]] = relationship(
-        back_populates="document", cascade="all, delete-orphan"
-    )
+    chunks: Mapped[list[KnowledgeChunk]] = relationship(back_populates="document", cascade="all, delete-orphan")
 
 
 class KnowledgeChunk(Base):
     __tablename__ = "knowledge_chunks"
-    __table_args__ = (
-        UniqueConstraint(
-            "document_id", "chunk_index", name="uq_knowledge_chunks_doc_chunk"
-        ),
-    )
+    __table_args__ = (UniqueConstraint("document_id", "chunk_index", name="uq_knowledge_chunks_doc_chunk"),)
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     document_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
@@ -89,13 +75,9 @@ class KnowledgeChunk(Base):
     latex: Mapped[str | None] = mapped_column(Text, nullable=True)
     question_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    metadata_: Mapped[dict[str, Any]] = mapped_column(
-        "metadata", JSONB, server_default="'{}'::jsonb", nullable=False
-    )
+    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, server_default="'{}'::jsonb", nullable=False)
     embedding: Mapped[list[float]] = mapped_column(Vector(1536), nullable=False)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    document: Mapped["KnowledgeDocument"] = relationship(back_populates="chunks")
+    document: Mapped[KnowledgeDocument] = relationship(back_populates="chunks")
