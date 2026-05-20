@@ -32,7 +32,7 @@ BACKUP_DIR="$PROJECT_DIR/backups/$(date +%Y%m%d_%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 if docker compose -f "$COMPOSE_FILE" ps postgres --status running -q 2>/dev/null | grep -q .; then
   docker compose -f "$COMPOSE_FILE" exec -T postgres \
-    pg_dump -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-math_correction}" \
+    sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' \
     > "$BACKUP_DIR/db_pre_deploy.sql" 2>/dev/null \
     && echo "  ✓ Backup DB → $BACKUP_DIR/db_pre_deploy.sql" \
     || echo "  ⚠ pg_dump skipped (container not ready or first deploy)"
