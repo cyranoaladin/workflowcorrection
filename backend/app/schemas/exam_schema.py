@@ -35,5 +35,8 @@ class ExamRead(BaseModel):
     rubric_json: dict[str, Any] | None
 
     total_points: Decimal
+    embedding_status: str | None = None
+    embedded_chunks_count: int | None = None
+    embedded_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

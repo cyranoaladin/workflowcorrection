@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlparse
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -117,7 +118,7 @@ class Settings(BaseSettings):
             problems.append("PUBLIC_API_BASE_URL")
         if self.RAG_PROVIDER == "http":
             unsafe_secret("RAG_HTTP_API_TOKEN", self.RAG_HTTP_API_TOKEN, min_len=16)
-            if not self.RAG_HTTP_BASE_URL.startswith("https://"):
+            if not (self.RAG_HTTP_BASE_URL.startswith("https://") or _is_internal_http_url(self.RAG_HTTP_BASE_URL)):
                 problems.append("RAG_HTTP_BASE_URL")
 
         if problems:
@@ -128,3 +129,11 @@ class Settings(BaseSettings):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     return Settings()
+
+
+def _is_internal_http_url(value: str) -> bool:
+    parsed = urlparse(value)
+    hostname = parsed.hostname or ""
+    if parsed.scheme != "http" or not hostname:
+        return False
+    return "." not in hostname and hostname not in {"localhost", "127.0.0.1", "0.0.0.0"}

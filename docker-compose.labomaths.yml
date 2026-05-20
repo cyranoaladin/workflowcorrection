@@ -40,10 +40,18 @@ services:
     environment:
       APP_ENV: production
       LOCAL_STORAGE_PATH: /app/storage
+      RAG_PROVIDER: http
+      RAG_HTTP_BASE_URL: http://compose-ingestor-1:8001
+      RAG_HTTP_API_TOKEN: ${RAG_HTTP_API_TOKEN}
+      RAG_HTTP_AUTH_HEADER: Authorization
+      RAG_HTTP_COLLECTION: rag_math_correction
     volumes:
       - ./storage:/app/storage
     ports:
       - "127.0.0.1:8010:8000"   # Accessible uniquement depuis localhost pour Caddy système
+    networks:
+      - default
+      - rag_external
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,9 +67,17 @@ services:
     environment:
       APP_ENV: production
       LOCAL_STORAGE_PATH: /app/storage
+      RAG_PROVIDER: http
+      RAG_HTTP_BASE_URL: http://compose-ingestor-1:8001
+      RAG_HTTP_API_TOKEN: ${RAG_HTTP_API_TOKEN}
+      RAG_HTTP_AUTH_HEADER: Authorization
+      RAG_HTTP_COLLECTION: rag_math_correction
     volumes:
       - ./storage:/app/storage
     command: celery -A app.workers.celery_app.celery worker --loglevel=INFO --concurrency=2
+    networks:
+      - default
+      - rag_external
     depends_on:
       postgres:
         condition: service_healthy
@@ -86,3 +102,9 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  default:
+  rag_external:
+    name: compose_rag_ui_net
+    external: true

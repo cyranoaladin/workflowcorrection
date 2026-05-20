@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
 from celery.utils.log import get_task_logger
@@ -64,13 +65,24 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
             ):
                 chunks = chunk_rubric_json(exam.rubric_json)
                 if use_http_rag:
-                    total_chunks += _ingest_chunks_with_provider(
+                    chunks_count = _ingest_chunks_with_provider(
                         chunks,
                         exam_id=exam.id,
                         kind="rubric",
                         source_path="rubric_json",
                         content_hash=rubric_hash,
                         title=f"Barème - {exam.title}",
+                        force=force,
+                    )
+                    total_chunks += chunks_count
+                    _upsert_external_document_record(
+                        db,
+                        exam_id=exam.id,
+                        kind="rubric",
+                        source_path="rubric_json",
+                        content_hash=rubric_hash,
+                        title=f"Barème - {exam.title}",
+                        chunks_count=chunks_count,
                         force=force,
                     )
                 else:
@@ -100,13 +112,24 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                 rubric_questions = (exam.rubric_json or {}).get("questions", [])
                 chunks = chunk_correction_pdf(text_per_page, rubric_questions)
                 if use_http_rag:
-                    total_chunks += _ingest_chunks_with_provider(
+                    chunks_count = _ingest_chunks_with_provider(
                         chunks,
                         exam_id=exam.id,
                         kind="correction",
                         source_path=exam.correction_pdf_path,
                         content_hash=pdf_hash,
                         title=f"Corrigé - {exam.title}",
+                        force=force,
+                    )
+                    total_chunks += chunks_count
+                    _upsert_external_document_record(
+                        db,
+                        exam_id=exam.id,
+                        kind="correction",
+                        source_path=exam.correction_pdf_path,
+                        content_hash=pdf_hash,
+                        title=f"Corrigé - {exam.title}",
+                        chunks_count=chunks_count,
                         force=force,
                     )
                 else:
@@ -136,13 +159,24 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                 full_text = "\n\n".join(text_per_page)
                 chunks = chunk_generic_pdf(full_text)
                 if use_http_rag:
-                    total_chunks += _ingest_chunks_with_provider(
+                    chunks_count = _ingest_chunks_with_provider(
                         chunks,
                         exam_id=exam.id,
                         kind="rubric",
                         source_path=exam.rubric_pdf_path,
                         content_hash=pdf_hash,
                         title=f"Barème PDF - {exam.title}",
+                        force=force,
+                    )
+                    total_chunks += chunks_count
+                    _upsert_external_document_record(
+                        db,
+                        exam_id=exam.id,
+                        kind="rubric",
+                        source_path=exam.rubric_pdf_path,
+                        content_hash=pdf_hash,
+                        title=f"Barème PDF - {exam.title}",
+                        chunks_count=chunks_count,
                         force=force,
                     )
                 else:
@@ -158,12 +192,15 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                     )
 
         db.commit()
+        _set_exam_embedding_metadata(db, exam, status="embedded", chunks_count=total_chunks)
 
         logger.info("Embedded exam %s: %d chunks total", exam_id, total_chunks)
         return {"status": "completed", "chunks_count": total_chunks, "exam_id": exam_id}
 
     except Exception as exc:
         db.rollback()
+        if "exam" in locals() and exam is not None:
+            _set_exam_embedding_metadata(db, exam, status="failed")
         logger.exception("Error embedding exam %s: %s", exam_id, exc)
         raise self.retry(exc=exc) from exc
     finally:
@@ -179,6 +216,24 @@ def _hash_json(value: Any) -> str:
     """SHA-256 hash of canonical JSON content."""
     payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     return _hash_content(payload.encode("utf-8"))
+
+
+def _set_exam_embedding_metadata(
+    db: Session,
+    exam: Exam,
+    *,
+    status: str,
+    chunks_count: int | None = None,
+) -> None:
+    metadata = dict(exam.metadata_json or {})
+    metadata["embedding_status"] = status
+    if chunks_count is not None:
+        metadata["embedded_chunks_count"] = chunks_count
+    if status == "embedded":
+        metadata["embedded_at"] = datetime.now(UTC).isoformat()
+    exam.metadata_json = metadata
+    db.add(exam)
+    db.commit()
 
 
 def _doc_exists(db: Session, *, exam_id: uuid.UUID, content_hash: str) -> bool:
@@ -268,6 +323,45 @@ def _persist_chunks(
 
     db.flush()
     return len(chunks)
+
+
+def _upsert_external_document_record(
+    db: Session,
+    *,
+    exam_id: uuid.UUID,
+    kind: str,
+    source_path: str,
+    content_hash: str,
+    title: str,
+    chunks_count: int,
+    force: bool = False,
+) -> None:
+    existing = (
+        db.query(KnowledgeDocument)
+        .filter(
+            KnowledgeDocument.exam_id == exam_id,
+            KnowledgeDocument.content_hash == content_hash,
+        )
+        .first()
+    )
+    metadata = {"provider": "http", "chunks_count": chunks_count}
+    if existing:
+        if force:
+            existing.source_path = source_path
+            existing.title = title
+            existing.metadata_ = metadata
+        return
+
+    db.add(
+        KnowledgeDocument(
+            exam_id=exam_id,
+            kind=kind,
+            source_path=source_path,
+            content_hash=content_hash,
+            title=title,
+            metadata_=metadata,
+        )
+    )
 
 
 def _ingest_chunks_with_provider(
