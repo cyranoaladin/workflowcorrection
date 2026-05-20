@@ -1,7 +1,7 @@
 # docker-compose.labomaths.yml
 # Stack workflowcorrection pour intégration dans maths.labomaths.tn
 # Caddy est géré en SERVICE SYSTÈME sur le serveur (pas en Docker).
-# Le backend écoute sur 127.0.0.1:8001 et le frontend sur 127.0.0.1:3001
+# Le backend écoute sur 127.0.0.1:8010 et le frontend sur 127.0.0.1:3011
 # pour que le Caddy système puisse les proxifier sans conflit de ports.
 
 services:

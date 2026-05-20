@@ -39,6 +39,7 @@ class TestRetrieve:
         mock_row = MagicMock()
         mock_row.chunk_id = chunk_id
         mock_row.document_id = doc_id
+        mock_row.chunk_index = 7
         mock_row.kind = "correction"
         mock_row.question_id = "Q1"
         mock_row.text = "La dérivée de x^2 est 2x"
@@ -57,6 +58,7 @@ class TestRetrieve:
 
         assert len(results) == 1
         assert results[0].score == 0.85
+        assert results[0].chunk_index == 7
         assert results[0].kind == "correction"
         assert results[0].question_id == "Q1"
         mock_embed.assert_called_once_with(["Quelle est la dérivée de f?"])
@@ -76,6 +78,7 @@ class TestRetrieve:
         low_score_row = MagicMock()
         low_score_row.chunk_id = uuid.uuid4()
         low_score_row.document_id = uuid.uuid4()
+        low_score_row.chunk_index = 0
         low_score_row.kind = "rubric"
         low_score_row.question_id = None
         low_score_row.text = "Low relevance text"
@@ -164,6 +167,7 @@ class TestRetrieve:
             row = MagicMock()
             row.chunk_id = uuid.uuid4()
             row.document_id = uuid.uuid4()
+            row.chunk_index = i
             row.kind = "correction"
             row.question_id = f"Q{i+1}"
             row.text = f"chunk {i}"

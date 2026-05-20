@@ -99,4 +99,3 @@ def downgrade() -> None:
     op.drop_index("ix_knowledge_chunks_document_id")
     op.drop_table("knowledge_chunks")
     op.drop_table("knowledge_documents")
-    op.execute("DROP EXTENSION IF EXISTS vector")

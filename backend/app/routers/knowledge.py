@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -56,19 +57,33 @@ def embed_exam(
 
     from app.workers.embed_tasks import embed_exam_task
 
-    task = embed_exam_task.delay(str(exam_id), force=force)
+    task = embed_exam_task.apply_async(
+        args=[str(exam_id)],
+        kwargs={"force": force},
+        task_id=_new_embed_task_id(exam_id),
+    )
     return _build_embed_response(task)
 
 
 def _build_embed_response(task) -> EmbedResponse:
     if task.ready():
-        result = task.result or {}
+        result = task.result if isinstance(task.result, dict) else {}
+        fallback_status = str(getattr(task, "status", "completed")).lower()
         return EmbedResponse(
-            status=result.get("status", "completed"),
+            status=result.get("status", fallback_status),
             task_id=task.id,
             chunks_count=result.get("chunks_count", 0),
         )
     return EmbedResponse(status="queued", task_id=task.id)
+
+
+def _new_embed_task_id(exam_id: UUID) -> str:
+    return f"embed_exam:{exam_id}:{uuid.uuid4()}"
+
+
+def _embed_task_belongs_to_exam(task_id: str, exam_id: UUID) -> bool:
+    prefix = f"embed_exam:{exam_id}:"
+    return task_id.startswith(prefix)
 
 
 @router.get("/{exam_id}/knowledge", response_model=KnowledgeListResponse)
@@ -115,6 +130,9 @@ def embed_status(
     exam = db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
+
+    if not _embed_task_belongs_to_exam(task_id, exam_id):
+        raise HTTPException(status_code=404, detail="Embedding task not found")
 
     from app.workers.celery_app import celery
 

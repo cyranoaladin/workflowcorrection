@@ -28,6 +28,7 @@ def retrieve(
         SELECT
             chunk.id AS chunk_id,
             chunk.document_id,
+            chunk.chunk_index,
             kd.kind,
             chunk.question_id,
             chunk.text,

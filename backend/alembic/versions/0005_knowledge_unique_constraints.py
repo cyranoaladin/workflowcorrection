@@ -39,8 +39,3 @@ def downgrade() -> None:
     op.drop_constraint("uq_knowledge_chunks_doc_chunk", "knowledge_chunks", type_="unique")
     op.execute("DROP INDEX IF EXISTS uq_knowledge_documents_owner_hash_path")
     op.execute("DROP INDEX IF EXISTS uq_knowledge_documents_exam_hash")
-    op.create_unique_constraint(
-        "knowledge_documents_content_hash_key",
-        "knowledge_documents",
-        ["content_hash"],
-    )

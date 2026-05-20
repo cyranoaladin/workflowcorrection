@@ -29,6 +29,7 @@ class PgvectorRagProvider:
             SELECT
                 chunk.id AS chunk_id,
                 chunk.document_id,
+                chunk.chunk_index,
                 kd.kind,
                 chunk.question_id,
                 chunk.text,
@@ -60,7 +61,7 @@ class PgvectorRagProvider:
             RetrievedChunk(
                 id=str(row.chunk_id),
                 document_id=str(row.document_id),
-                chunk_index=0,
+                chunk_index=int(row.chunk_index),
                 text=row.text,
                 latex=row.latex,
                 question_id=row.question_id,

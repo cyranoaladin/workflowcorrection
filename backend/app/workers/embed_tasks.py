@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import uuid
+from typing import Any
 
 from celery.utils.log import get_task_logger
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.database import SessionLocal
 from app.core.storage import get_storage
 from app.models.exam import Exam
@@ -19,6 +22,7 @@ from app.services.chunking_service import (
     chunk_rubric_json,
 )
 from app.services.embedding_service import embed_texts
+from app.services.rag.factory import get_rag_provider
 from app.workers.celery_app import celery
 
 logger = get_task_logger(__name__)
@@ -45,23 +49,35 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
             return {"status": "error", "message": "Exam not found"}
 
         storage = get_storage()
+        use_http_rag = get_settings().RAG_PROVIDER == "http"
         total_chunks = 0
 
         # 1. Embed rubric JSON if available
         if exam.rubric_json:
-            rubric_hash = _hash_content(str(exam.rubric_json).encode())
+            rubric_hash = _hash_json(exam.rubric_json)
             if force or not _doc_exists(db, exam_id=exam.id, content_hash=rubric_hash):
                 chunks = chunk_rubric_json(exam.rubric_json)
-                total_chunks += _persist_chunks(
-                    db,
-                    chunks,
-                    exam_id=exam.id,
-                    kind="rubric",
-                    source_path="rubric_json",
-                    content_hash=rubric_hash,
-                    title=f"Barème - {exam.title}",
-                    force=force,
-                )
+                if use_http_rag:
+                    total_chunks += _ingest_chunks_with_provider(
+                        chunks,
+                        exam_id=exam.id,
+                        kind="rubric",
+                        source_path="rubric_json",
+                        content_hash=rubric_hash,
+                        title=f"Barème - {exam.title}",
+                        force=force,
+                    )
+                else:
+                    total_chunks += _persist_chunks(
+                        db,
+                        chunks,
+                        exam_id=exam.id,
+                        kind="rubric",
+                        source_path="rubric_json",
+                        content_hash=rubric_hash,
+                        title=f"Barème - {exam.title}",
+                        force=force,
+                    )
 
         # 2. Embed correction PDF if available
         if exam.correction_pdf_path:
@@ -71,16 +87,27 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                 text_per_page = _extract_text_from_pdf(pdf_bytes)
                 rubric_questions = (exam.rubric_json or {}).get("questions", [])
                 chunks = chunk_correction_pdf(text_per_page, rubric_questions)
-                total_chunks += _persist_chunks(
-                    db,
-                    chunks,
-                    exam_id=exam.id,
-                    kind="correction",
-                    source_path=exam.correction_pdf_path,
-                    content_hash=pdf_hash,
-                    title=f"Corrigé - {exam.title}",
-                    force=force,
-                )
+                if use_http_rag:
+                    total_chunks += _ingest_chunks_with_provider(
+                        chunks,
+                        exam_id=exam.id,
+                        kind="correction",
+                        source_path=exam.correction_pdf_path,
+                        content_hash=pdf_hash,
+                        title=f"Corrigé - {exam.title}",
+                        force=force,
+                    )
+                else:
+                    total_chunks += _persist_chunks(
+                        db,
+                        chunks,
+                        exam_id=exam.id,
+                        kind="correction",
+                        source_path=exam.correction_pdf_path,
+                        content_hash=pdf_hash,
+                        title=f"Corrigé - {exam.title}",
+                        force=force,
+                    )
 
         # 3. Embed rubric PDF if available (as generic)
         if exam.rubric_pdf_path:
@@ -90,21 +117,32 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                 text_per_page = _extract_text_from_pdf(pdf_bytes)
                 full_text = "\n\n".join(text_per_page)
                 chunks = chunk_generic_pdf(full_text)
-                total_chunks += _persist_chunks(
-                    db,
-                    chunks,
-                    exam_id=exam.id,
-                    kind="rubric",
-                    source_path=exam.rubric_pdf_path,
-                    content_hash=pdf_hash,
-                    title=f"Barème PDF - {exam.title}",
-                    force=force,
-                )
+                if use_http_rag:
+                    total_chunks += _ingest_chunks_with_provider(
+                        chunks,
+                        exam_id=exam.id,
+                        kind="rubric",
+                        source_path=exam.rubric_pdf_path,
+                        content_hash=pdf_hash,
+                        title=f"Barème PDF - {exam.title}",
+                        force=force,
+                    )
+                else:
+                    total_chunks += _persist_chunks(
+                        db,
+                        chunks,
+                        exam_id=exam.id,
+                        kind="rubric",
+                        source_path=exam.rubric_pdf_path,
+                        content_hash=pdf_hash,
+                        title=f"Barème PDF - {exam.title}",
+                        force=force,
+                    )
 
         db.commit()
 
         logger.info("Embedded exam %s: %d chunks total", exam_id, total_chunks)
-        return {"status": "completed", "chunks_count": total_chunks}
+        return {"status": "completed", "chunks_count": total_chunks, "exam_id": exam_id}
 
     except Exception as exc:
         db.rollback()
@@ -117,6 +155,12 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
 def _hash_content(content: bytes) -> str:
     """SHA-256 hash of content."""
     return hashlib.sha256(content).hexdigest()
+
+
+def _hash_json(value: Any) -> str:
+    """SHA-256 hash of canonical JSON content."""
+    payload = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return _hash_content(payload.encode("utf-8"))
 
 
 def _doc_exists(db: Session, *, exam_id: uuid.UUID, content_hash: str) -> bool:
@@ -192,6 +236,55 @@ def _persist_chunks(
 
     db.flush()
     return len(chunks)
+
+
+def _ingest_chunks_with_provider(
+    chunks: list[Chunk],
+    *,
+    exam_id: uuid.UUID,
+    kind: str,
+    source_path: str,
+    content_hash: str,
+    title: str,
+    force: bool = False,
+) -> int:
+    """Ingest chunks into the configured external RAG provider."""
+    if not chunks:
+        return 0
+
+    provider = get_rag_provider()
+    total = 0
+    for chunk in chunks:
+        chunk_hash = f"{content_hash}:{chunk.chunk_index}"
+        chunk_source = f"{source_path}#chunk-{chunk.chunk_index}"
+        response = provider.ingest_document(
+            exam_id=str(exam_id),
+            kind=kind,
+            source_path=chunk_source,
+            content_hash=chunk_hash,
+            title=f"{title} — chunk {chunk.chunk_index}",
+            chunks_or_text=chunk.text,
+            metadata={
+                "question_id": chunk.question_id,
+                "chunk_index": chunk.chunk_index,
+                "tokens": chunk.tokens,
+                "latex": chunk.latex,
+            },
+            force=force,
+        )
+        total += _provider_chunks_count(response)
+    return total
+
+
+def _provider_chunks_count(response: dict[str, Any]) -> int:
+    if response.get("status") == "skipped":
+        return 0
+    value = response.get("chunks_count", response.get("count"))
+    if isinstance(value, int):
+        return value
+    if isinstance(response.get("chunks"), list):
+        return len(response["chunks"])
+    return 1
 
 
 def _extract_text_from_pdf(pdf_bytes: bytes) -> list[str]:

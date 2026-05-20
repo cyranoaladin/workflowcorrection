@@ -121,10 +121,7 @@ def chunk_generic_pdf(
     overlap: int = 50,
     overlap_tokens: int | None = None,
 ) -> list[Chunk]:
-    """Chunk generic text (syllabus, user_doc) by paragraph with overlap.
-
-    LaTeX-aware: avoids splitting inside $...$ or \\begin{...}...\\end{...} blocks.
-    """
+    """Chunk generic text (syllabus, user_doc) by paragraph with token-sized overlap."""
     if not text.strip():
         return []
     overlap_size = overlap if overlap_tokens is None else overlap_tokens

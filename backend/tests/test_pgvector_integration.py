@@ -56,6 +56,7 @@ def test_pgvector_retrieve_orders_by_cosine_similarity() -> None:
             chunks = retrieve(db=db, exam_id=exam.id, question_id="Q1", query="synthetic", top_k=3)
 
         assert [chunk.text for chunk in chunks[:3]] == ["best", "second", "third"]
+        assert [chunk.chunk_index for chunk in chunks[:3]] == [0, 1, 2]
     finally:
         db.rollback()
         if "exam" in locals():

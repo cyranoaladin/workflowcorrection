@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.orm import Session
@@ -10,7 +10,12 @@ from app.core.database import SessionLocal
 from app.models.exam import Exam
 from app.models.knowledge import KnowledgeChunk, KnowledgeDocument
 from app.services.chunking_service import Chunk
-from app.workers.embed_tasks import _doc_exists, _persist_chunks
+from app.workers.embed_tasks import (
+    _doc_exists,
+    _hash_json,
+    _ingest_chunks_with_provider,
+    _persist_chunks,
+)
 
 
 @pytest.fixture
@@ -89,3 +94,35 @@ def test_force_reembed_deletes_only_matching_exam_document(db_session: Session) 
         db_session.query(KnowledgeChunk).join(KnowledgeDocument).filter(KnowledgeDocument.exam_id == exam_a.id).count()
         == 1
     )
+
+
+def test_hash_json_uses_canonical_serialization() -> None:
+    assert _hash_json({"b": 2, "a": 1}) == _hash_json({"a": 1, "b": 2})
+
+
+def test_http_ingestion_sends_one_document_per_chunk() -> None:
+    provider = MagicMock()
+    provider.ingest_document.return_value = {"status": "completed", "chunks_count": 1}
+
+    chunks = [
+        Chunk(text="Q1 text", question_id="Q1", chunk_index=0, tokens=3, latex="$x$"),
+        Chunk(text="Q2 text", question_id="Q2", chunk_index=1, tokens=4),
+    ]
+
+    with patch("app.workers.embed_tasks.get_rag_provider", return_value=provider):
+        count = _ingest_chunks_with_provider(
+            chunks,
+            exam_id=uuid.uuid4(),
+            kind="rubric",
+            source_path="rubric_json",
+            content_hash="hash",
+            title="Barème",
+        )
+
+    assert count == 2
+    assert provider.ingest_document.call_count == 2
+    first_call = provider.ingest_document.call_args_list[0].kwargs
+    assert first_call["source_path"] == "rubric_json#chunk-0"
+    assert first_call["content_hash"] == "hash:0"
+    assert first_call["metadata"]["question_id"] == "Q1"
+    assert first_call["metadata"]["chunk_index"] == 0
