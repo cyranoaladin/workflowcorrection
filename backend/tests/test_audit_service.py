@@ -1,10 +1,26 @@
-"""Tests for audit_service — adversarial edge cases."""
+"""Tests for audit_service — adversarial edge cases.
+
+All rule-based tests patch OPENAI_API_KEY to empty so that the LLM-as-judge
+path is skipped (conftest sets it to "sk-test" which is truthy but invalid).
+"""
 
 from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
+
 from app.services.audit_service import audit_correction
+
+
+@pytest.fixture(autouse=True)
+def _disable_llm_audit():
+    """Disable LLM audit calls — test only rule-based checks."""
+    with patch("app.services.audit_service.get_settings") as mock_settings:
+        mock_settings.return_value.OPENAI_API_KEY = ""
+        mock_settings.return_value.OPENAI_AUDIT_MODEL = "gpt-4.1-mini"
+        mock_settings.return_value.OPENAI_BASE_URL = None
+        yield
 
 
 def _make_correction(
@@ -151,7 +167,12 @@ class TestAuditLLMFallback:
     """When LLM fails, rule-based results should still be returned."""
 
     @patch("app.services.audit_service.OpenAI")
-    def test_llm_failure_returns_rule_based(self, mock_openai_cls):
+    @patch("app.services.audit_service.get_settings")
+    def test_llm_failure_returns_rule_based(self, mock_settings, mock_openai_cls):
+        # Enable LLM path so we can test failure handling
+        mock_settings.return_value.OPENAI_API_KEY = "sk-test-key"
+        mock_settings.return_value.OPENAI_AUDIT_MODEL = "gpt-4.1-mini"
+        mock_settings.return_value.OPENAI_BASE_URL = None
         mock_openai_cls.return_value.chat.completions.create.side_effect = Exception("API timeout")
         corrections = [
             _make_correction("Q1", confidence=0.3),
