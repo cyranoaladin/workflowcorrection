@@ -43,6 +43,9 @@ def get_page_image(
         raise HTTPException(status_code=404, detail="Page not found")
 
     rel = page.original_image_path if type == "original" else page.processed_image_path
+    # Fallback: serve original if processed is not available
+    if not rel and type == "processed":
+        rel = page.original_image_path
     if not rel:
         raise HTTPException(status_code=404, detail="Image not available")
 

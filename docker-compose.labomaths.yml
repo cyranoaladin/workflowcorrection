@@ -8,6 +8,12 @@ services:
   postgres:
     image: pgvector/pgvector:pg16
     restart: unless-stopped
+    command:
+      - "postgres"
+      - "-c"
+      - "max_connections=200"
+      - "-c"
+      - "shared_buffers=256MB"
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -45,10 +51,18 @@ services:
       RAG_HTTP_API_TOKEN: ${RAG_HTTP_API_TOKEN}
       RAG_HTTP_AUTH_HEADER: Authorization
       RAG_HTTP_COLLECTION: rag_math_correction
+      DB_POOL_SIZE: "15"
+      DB_MAX_OVERFLOW: "20"
     volumes:
       - ./storage:/app/storage
     ports:
-      - "127.0.0.1:8010:8000"   # Accessible uniquement depuis localhost pour Caddy système
+      - "127.0.0.1:8010:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/health/live', timeout=5).raise_for_status()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
     networks:
       - default
       - rag_external
@@ -72,6 +86,8 @@ services:
       RAG_HTTP_API_TOKEN: ${RAG_HTTP_API_TOKEN}
       RAG_HTTP_AUTH_HEADER: Authorization
       RAG_HTTP_COLLECTION: rag_math_correction
+      DB_POOL_SIZE: "5"
+      DB_MAX_OVERFLOW: "10"
     volumes:
       - ./storage:/app/storage
     command: celery -A app.workers.celery_app.celery worker --loglevel=INFO --concurrency=2

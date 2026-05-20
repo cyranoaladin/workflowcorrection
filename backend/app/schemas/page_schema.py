@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.transcription_schema import TranscriptionRead
+
 
 class PageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -17,3 +19,10 @@ class PageRead(BaseModel):
     width: int | None
     height: int | None
     created_at: datetime
+
+
+class PageFullRead(PageRead):
+    """Page with its transcriptions pre-loaded (batch endpoint)."""
+
+    has_processed: bool = False
+    transcriptions: list[TranscriptionRead] = []

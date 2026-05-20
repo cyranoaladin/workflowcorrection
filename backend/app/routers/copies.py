@@ -5,7 +5,7 @@ from uuid import UUID
 
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -16,7 +16,7 @@ from app.models.exam import Exam
 from app.models.page import CopyPage
 from app.models.transcription import Transcription
 from app.schemas.copy_schema import CopyRead
-from app.schemas.page_schema import PageRead
+from app.schemas.page_schema import PageFullRead, PageRead
 from app.schemas.transcription_schema import TranscriptionRead
 from app.services.azure_ocr_service import call_azure_read
 from app.services.mathpix_service import call_mathpix_image
@@ -121,6 +121,29 @@ def list_pages(copy_id: UUID, db: Session = Depends(get_db)) -> list[CopyPage]:
     if not copy:
         raise HTTPException(status_code=404, detail="Copy not found")
     return db.query(CopyPage).filter(CopyPage.copy_id == copy_id).order_by(CopyPage.page_number.asc()).all()
+
+
+@router.get("/copies/{copy_id}/pages-full", response_model=list[PageFullRead])
+def list_pages_full(copy_id: UUID, db: Session = Depends(get_db)) -> list[dict]:
+    """All pages with transcriptions in a single query (eliminates N+1)."""
+    copy = db.get(StudentCopy, copy_id)
+    if not copy:
+        raise HTTPException(status_code=404, detail="Copy not found")
+    pages = (
+        db.query(CopyPage)
+        .filter(CopyPage.copy_id == copy_id)
+        .options(selectinload(CopyPage.transcriptions))
+        .order_by(CopyPage.page_number.asc())
+        .all()
+    )
+    return [
+        {
+            **PageRead.model_validate(p).model_dump(),
+            "has_processed": bool(p.processed_image_path),
+            "transcriptions": p.transcriptions,
+        }
+        for p in pages
+    ]
 
 
 @router.get("/copies/{copy_id}/status")

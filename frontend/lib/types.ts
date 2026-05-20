@@ -67,6 +67,11 @@ export type CopyPage = {
   created_at: string;
 };
 
+export type PageFull = CopyPage & {
+  has_processed: boolean;
+  transcriptions: Transcription[];
+};
+
 export type Transcription = {
   id: string;
   copy_id: string;
