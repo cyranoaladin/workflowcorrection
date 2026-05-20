@@ -1,6 +1,20 @@
 # HTTP RAG Provider Contract
 
-This project uses `https://rag-api.nexusreussite.academy` as the production RAG provider.
+This project uses the colocated RAG ingestor as the production RAG provider.
+
+Production on the Hetzner host:
+
+```env
+RAG_HTTP_BASE_URL=http://compose-ingestor-1:8001
+```
+
+Remote development fallback:
+
+```env
+RAG_HTTP_BASE_URL=https://rag-api.nexusreussite.academy
+```
+
+The API contract is identical for the internal Docker URL and the public fallback. The internal URL avoids Caddy/Nginx/TLS hops and keeps backend-to-RAG latency on the Docker bridge.
 
 ## Authentication
 
