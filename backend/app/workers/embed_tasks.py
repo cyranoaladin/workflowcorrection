@@ -55,7 +55,13 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
         # 1. Embed rubric JSON if available
         if exam.rubric_json:
             rubric_hash = _hash_json(exam.rubric_json)
-            if force or not _doc_exists(db, exam_id=exam.id, content_hash=rubric_hash):
+            if _should_process_document(
+                db,
+                use_http_rag=use_http_rag,
+                force=force,
+                exam_id=exam.id,
+                content_hash=rubric_hash,
+            ):
                 chunks = chunk_rubric_json(exam.rubric_json)
                 if use_http_rag:
                     total_chunks += _ingest_chunks_with_provider(
@@ -83,7 +89,13 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
         if exam.correction_pdf_path:
             pdf_bytes = storage.read(exam.correction_pdf_path)
             pdf_hash = _hash_content(pdf_bytes)
-            if force or not _doc_exists(db, exam_id=exam.id, content_hash=pdf_hash):
+            if _should_process_document(
+                db,
+                use_http_rag=use_http_rag,
+                force=force,
+                exam_id=exam.id,
+                content_hash=pdf_hash,
+            ):
                 text_per_page = _extract_text_from_pdf(pdf_bytes)
                 rubric_questions = (exam.rubric_json or {}).get("questions", [])
                 chunks = chunk_correction_pdf(text_per_page, rubric_questions)
@@ -113,7 +125,13 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
         if exam.rubric_pdf_path:
             pdf_bytes = storage.read(exam.rubric_pdf_path)
             pdf_hash = _hash_content(pdf_bytes)
-            if force or not _doc_exists(db, exam_id=exam.id, content_hash=pdf_hash):
+            if _should_process_document(
+                db,
+                use_http_rag=use_http_rag,
+                force=force,
+                exam_id=exam.id,
+                content_hash=pdf_hash,
+            ):
                 text_per_page = _extract_text_from_pdf(pdf_bytes)
                 full_text = "\n\n".join(text_per_page)
                 chunks = chunk_generic_pdf(full_text)
@@ -174,6 +192,20 @@ def _doc_exists(db: Session, *, exam_id: uuid.UUID, content_hash: str) -> bool:
         .first()
         is not None
     )
+
+
+def _should_process_document(
+    db: Session,
+    *,
+    use_http_rag: bool,
+    force: bool,
+    exam_id: uuid.UUID,
+    content_hash: str,
+) -> bool:
+    """Decide whether a document should be embedded for the active provider."""
+    if use_http_rag:
+        return True
+    return force or not _doc_exists(db, exam_id=exam_id, content_hash=content_hash)
 
 
 def _persist_chunks(
@@ -256,7 +288,7 @@ def _ingest_chunks_with_provider(
     total = 0
     for chunk in chunks:
         chunk_hash = f"{content_hash}:{chunk.chunk_index}"
-        chunk_source = f"{source_path}#chunk-{chunk.chunk_index}"
+        chunk_source = f"{source_path}#content-{content_hash}-chunk-{chunk.chunk_index}"
         response = provider.ingest_document(
             exam_id=str(exam_id),
             kind=kind,
@@ -265,6 +297,7 @@ def _ingest_chunks_with_provider(
             title=f"{title} — chunk {chunk.chunk_index}",
             chunks_or_text=chunk.text,
             metadata={
+                "original_source_path": source_path,
                 "question_id": chunk.question_id,
                 "chunk_index": chunk.chunk_index,
                 "tokens": chunk.tokens,

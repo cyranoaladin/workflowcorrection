@@ -15,6 +15,7 @@ from app.workers.embed_tasks import (
     _hash_json,
     _ingest_chunks_with_provider,
     _persist_chunks,
+    _should_process_document,
 )
 
 
@@ -100,6 +101,44 @@ def test_hash_json_uses_canonical_serialization() -> None:
     assert _hash_json({"b": 2, "a": 1}) == _hash_json({"a": 1, "b": 2})
 
 
+def test_http_provider_processing_ignores_local_pgvector_documents(db_session: Session) -> None:
+    content_hash = f"same-hash-{uuid.uuid4()}"
+    exam = Exam(title=f"exam-{uuid.uuid4()}", total_points=10, rubric_json={"questions": []})
+    db_session.add(exam)
+    db_session.flush()
+    db_session.add(
+        KnowledgeDocument(
+            exam_id=exam.id,
+            kind="rubric",
+            source_path="rubric_json",
+            content_hash=content_hash,
+            title="Local pgvector doc",
+        )
+    )
+    db_session.commit()
+
+    assert (
+        _should_process_document(
+            db_session,
+            use_http_rag=True,
+            force=False,
+            exam_id=exam.id,
+            content_hash=content_hash,
+        )
+        is True
+    )
+    assert (
+        _should_process_document(
+            db_session,
+            use_http_rag=False,
+            force=False,
+            exam_id=exam.id,
+            content_hash=content_hash,
+        )
+        is False
+    )
+
+
 def test_http_ingestion_sends_one_document_per_chunk() -> None:
     provider = MagicMock()
     provider.ingest_document.return_value = {"status": "completed", "chunks_count": 1}
@@ -122,7 +161,8 @@ def test_http_ingestion_sends_one_document_per_chunk() -> None:
     assert count == 2
     assert provider.ingest_document.call_count == 2
     first_call = provider.ingest_document.call_args_list[0].kwargs
-    assert first_call["source_path"] == "rubric_json#chunk-0"
+    assert first_call["source_path"] == "rubric_json#content-hash-chunk-0"
     assert first_call["content_hash"] == "hash:0"
+    assert first_call["metadata"]["original_source_path"] == "rubric_json"
     assert first_call["metadata"]["question_id"] == "Q1"
     assert first_call["metadata"]["chunk_index"] == 0
