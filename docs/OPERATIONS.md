@@ -6,10 +6,10 @@
 
 | Container | Role | Port expose |
 |-----------|------|-------------|
-| `backend` | API FastAPI | :8000 |
-| `frontend` | Interface Next.js | :3000 |
-| `postgres` | Base de donnees PostgreSQL | :5432 |
-| `redis` | Broker Celery / cache | :6379 |
+| `backend` | API FastAPI | 127.0.0.1:8010 |
+| `frontend` | Interface Next.js | 127.0.0.1:3011 |
+| `postgres` | Base de donnees PostgreSQL | — (interne) |
+| `redis` | Broker Celery / cache | — (interne) |
 | `worker` | Worker Celery (grading async) | — |
 
 ### Stack RAG colocalise (3+1 containers)

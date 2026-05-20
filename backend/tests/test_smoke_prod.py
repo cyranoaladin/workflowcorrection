@@ -28,7 +28,9 @@ def prod_client():
     _skip_if_no_prod()
     import httpx
 
-    return httpx.Client(base_url=PROD_URL, timeout=15)
+    client = httpx.Client(base_url=PROD_URL, timeout=15)
+    yield client
+    client.close()
 
 
 @pytest.fixture
@@ -38,11 +40,13 @@ def prod_admin_client():
         pytest.skip("ADMIN_API_TOKEN not set")
     import httpx
 
-    return httpx.Client(
+    client = httpx.Client(
         base_url=PROD_URL,
         headers={"Authorization": f"Bearer {ADMIN_TOKEN}"},
         timeout=15,
     )
+    yield client
+    client.close()
 
 
 def test_smoke_health(prod_client):

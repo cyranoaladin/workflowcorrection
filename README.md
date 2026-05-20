@@ -11,7 +11,7 @@ Plateforme de **correction automatique de copies de mathematiques** avec pipelin
 - **RAG** : indexation automatique du corrige et du bareme, injection de contexte dans la notation
 - **Notation IA** : LLM grading par question avec baremes structures
 - **Audit** : verification rule-based + LLM-as-judge avec recommandation tri-state (validate / review_partial / review_full)
-- **UI complette** : Next.js avec suivi RAG, flags d'audit, validation manuelle, export bilan CSV
+- **UI complete** : Next.js avec suivi RAG, flags d'audit, validation manuelle, export bilan CSV
 
 ## Architecture
 
@@ -79,7 +79,7 @@ docker compose exec backend pytest -q
 cd backend && pytest -q
 ```
 
-25 fichiers de tests : unit, integration, E2E.
+26 fichiers de tests : unit, integration, E2E.
 
 ## Endpoints principaux
 

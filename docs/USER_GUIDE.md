@@ -98,7 +98,7 @@ Prenez le temps de remplir soigneusement les champs `expected_answer` et `criter
 
 Une fois les trois PDF uploades et le bareme JSON valide, le systeme lance automatiquement l'**indexation RAG** (Retrieval-Augmented Generation). Cette etape :
 
-- Decoupe le sujet, le corrige et le bareme en segments.
+- Decoupe le corrige et le bareme en segments (le sujet n'est pas indexe).
 - Cree un index vectoriel permettant a l'IA de retrouver le contexte pertinent pour chaque question lors de la correction.
 
 Une barre de progression indique l'avancement. L'indexation dure generalement entre 30 secondes et 2 minutes selon la longueur des documents. Attendez que le statut passe a **"Indexe"** avant de poursuivre.

@@ -20,7 +20,7 @@ Phase 1 RAG go-live ready.
   - Chunking intelligent : par question, LaTeX-aware, overlap tokenise
   - Endpoints : embed, embed/status, knowledge listing
 
-- **UI complette Next.js 16**
+- **UI complete Next.js 16**
   - Dashboard examens avec progress pills
   - Page detail examen : upload, bareme JSON, RAG status panel
   - Page copie : OCR page par page, grading, rapport avec audit flags
@@ -31,7 +31,7 @@ Phase 1 RAG go-live ready.
 - **Infrastructure**
   - Healthchecks cross-services : database, redis, storage, rag
   - Stack RAG colocalise via reseau Docker compose_rag_ui_net (port 8001)
-  - 25 fichiers de tests (unit + integration + E2E)
+  - 26 fichiers de tests (unit + integration + E2E)
   - CI/CD GitHub Actions (lint Ruff + tests pytest)
   - Scripts deploy, backup, smoke-test
 
