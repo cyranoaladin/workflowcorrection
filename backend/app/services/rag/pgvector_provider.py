@@ -18,7 +18,7 @@ class PgvectorRagProvider:
         self,
         *,
         exam_id: str | None,
-        question_id: str | None,
+        question_id: str | None = None,
         query: str,
         top_k: int | None = None,
         kinds: list[str] | None = None,

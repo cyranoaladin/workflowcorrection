@@ -13,7 +13,7 @@
 - Set `CORS_ALLOWED_ORIGINS=https://<APP_DOMAIN>`.
 - Set `NEXT_PUBLIC_API_BASE_URL` to `https://<APP_DOMAIN>/api` (public, no secret).
 - Set `RAG_PROVIDER=http`.
-- Set `RAG_HTTP_BASE_URL=https://rag-api.nexusreussite.academy`.
+- Set `RAG_HTTP_BASE_URL=http://compose-ingestor-1:8001` when deployed on the colocated Hetzner host.
 - Set `RAG_HTTP_COLLECTION=rag_math_correction`.
 - Set `RAG_HTTP_API_TOKEN` server-side only. Never expose it in frontend env.
 - **Do NOT set `NEXT_PUBLIC_ADMIN_API_TOKEN`** (removed) or **`NEXT_PUBLIC_DEV_ADMIN_TOKEN`**

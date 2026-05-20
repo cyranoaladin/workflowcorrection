@@ -22,11 +22,17 @@ def _prod_settings(**overrides: object) -> Settings:
     return Settings(**values)
 
 
-def test_prod_http_rag_requires_https_base_url() -> None:
+def test_prod_http_rag_rejects_public_http_base_url() -> None:
     settings = _prod_settings(RAG_HTTP_BASE_URL="http://rag-api.nexusreussite.academy")
 
     with pytest.raises(ValueError, match="RAG_HTTP_BASE_URL"):
         settings.validate_for_runtime()
+
+
+def test_prod_http_rag_allows_internal_docker_http_base_url() -> None:
+    settings = _prod_settings(RAG_HTTP_BASE_URL="http://compose-ingestor-1:8001")
+
+    settings.validate_for_runtime()
 
 
 def test_prod_http_rag_requires_safe_token() -> None:
