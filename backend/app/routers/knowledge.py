@@ -74,7 +74,7 @@ def embed_exam(
             kwargs={"force": force},
             task_id=_new_embed_task_id(exam_id),
         )
-    except Exception:
+    except Exception as err:
         # Broker failure — rollback the queued status
         metadata.pop("embedding_status", None)
         metadata.pop("embedded_queued_at", None)
@@ -84,7 +84,7 @@ def embed_exam(
         raise HTTPException(
             status_code=503,
             detail="Failed to enqueue embedding task. Please try again later.",
-        )
+        ) from err
     return _build_embed_response(task)
 
 
