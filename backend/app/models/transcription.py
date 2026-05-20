@@ -19,7 +19,9 @@ class Transcription(Base):
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     copy_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("student_copies.id", ondelete="CASCADE"))
     page_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("copy_pages.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("copy_pages.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     question_id: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -38,7 +40,7 @@ class Transcription(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    copy: Mapped["StudentCopy"] = relationship(back_populates="transcriptions")
+    copy: Mapped[StudentCopy] = relationship(back_populates="transcriptions")
 
 
 from app.models.copy import StudentCopy  # noqa: E402

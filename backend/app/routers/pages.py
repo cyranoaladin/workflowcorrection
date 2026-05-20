@@ -60,10 +60,7 @@ def list_page_transcriptions(page_id: UUID, db: Session = Depends(get_db)) -> li
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
     return (
-        db.query(Transcription)
-        .filter(Transcription.page_id == page_id)
-        .order_by(Transcription.created_at.desc())
-        .all()
+        db.query(Transcription).filter(Transcription.page_id == page_id).order_by(Transcription.created_at.desc()).all()
     )
 
 
@@ -101,7 +98,10 @@ def ocr_mathpix(
     _guard_paid_calls_enabled()
     _guard_paid_call_confirmed(confirm_paid_call)
     if not settings.MATHPIX_APP_ID or not settings.MATHPIX_APP_KEY:
-        raise HTTPException(status_code=400, detail={"error": "missing_mathpix_keys", "message": "Mathpix keys not set"})
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "missing_mathpix_keys", "message": "Mathpix keys not set"},
+        )
 
     page = db.get(CopyPage, page_id)
     if not page:
@@ -190,7 +190,10 @@ def ocr_openai_vision(
     _guard_paid_calls_enabled()
     _guard_paid_call_confirmed(confirm_paid_call)
     if not settings.OPENAI_API_KEY:
-        raise HTTPException(status_code=400, detail={"error": "missing_openai_api_key", "message": "OpenAI key not set"})
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "missing_openai_api_key", "message": "OpenAI key not set"},
+        )
 
     page = db.get(CopyPage, page_id)
     if not page:
@@ -241,18 +244,36 @@ def ocr_fuse(page_id: UUID, db: Session = Depends(get_db)) -> Transcription:
     if not (m or a or o):
         raise HTTPException(
             status_code=400,
-            detail={"error": "no_transcriptions", "message": "No OCR transcriptions found for this page"},
+            detail={
+                "error": "no_transcriptions",
+                "message": "No OCR transcriptions found for this page",
+            },
         )
 
     fusion = fuse_transcriptions(
         page_id=str(page_id),
-        mathpix={"raw_text": m.raw_text, "raw_latex": m.raw_latex, "raw_json": m.raw_json, "confidence": m.confidence}
+        mathpix={
+            "raw_text": m.raw_text,
+            "raw_latex": m.raw_latex,
+            "raw_json": m.raw_json,
+            "confidence": m.confidence,
+        }
         if m
         else None,
-        azure={"raw_text": a.raw_text, "raw_latex": a.raw_latex, "raw_json": a.raw_json, "confidence": a.confidence}
+        azure={
+            "raw_text": a.raw_text,
+            "raw_latex": a.raw_latex,
+            "raw_json": a.raw_json,
+            "confidence": a.confidence,
+        }
         if a
         else None,
-        openai={"raw_text": o.raw_text, "raw_latex": o.raw_latex, "raw_json": o.raw_json, "confidence": o.confidence}
+        openai={
+            "raw_text": o.raw_text,
+            "raw_latex": o.raw_latex,
+            "raw_json": o.raw_json,
+            "confidence": o.confidence,
+        }
         if o
         else None,
     )

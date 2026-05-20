@@ -11,4 +11,3 @@ def merge_transcriptions(mathpix_json: dict | None, azure_json: dict | None, ope
             "openai": bool(openai_json),
         },
     }
-

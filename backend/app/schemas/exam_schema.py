@@ -37,4 +37,3 @@ class ExamRead(BaseModel):
     total_points: Decimal
     created_at: datetime
     updated_at: datetime
-

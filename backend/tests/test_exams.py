@@ -19,4 +19,3 @@ def test_create_and_list_exams(client, unique_title, cleanup_ids):
 def test_get_exam_not_found(client):
     r = client.get("/exams/00000000-0000-0000-0000-000000000000")
     assert r.status_code == 404
-

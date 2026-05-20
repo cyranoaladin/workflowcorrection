@@ -16,6 +16,7 @@ RUN groupadd -g 1000 appgroup && useradd -m -u 1000 -g 1000 -s /bin/bash appuser
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
+COPY pyproject.toml /app/pyproject.toml
 COPY alembic.ini /app/alembic.ini
 COPY alembic /app/alembic
 COPY app /app/app

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from enum import Enum
 from decimal import Decimal
+from enum import Enum
 
 from sqlalchemy import ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -39,10 +39,10 @@ class StudentCopy(TimestampMixin, Base):
     confidence: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    exam: Mapped["Exam"] = relationship(back_populates="copies")
-    pages: Mapped[list["CopyPage"]] = relationship(back_populates="copy", cascade="all, delete-orphan")
-    transcriptions: Mapped[list["Transcription"]] = relationship(back_populates="copy", cascade="all, delete-orphan")
-    corrections: Mapped[list["Correction"]] = relationship(back_populates="copy", cascade="all, delete-orphan")
+    exam: Mapped[Exam] = relationship(back_populates="copies")
+    pages: Mapped[list[CopyPage]] = relationship(back_populates="copy", cascade="all, delete-orphan")
+    transcriptions: Mapped[list[Transcription]] = relationship(back_populates="copy", cascade="all, delete-orphan")
+    corrections: Mapped[list[Correction]] = relationship(back_populates="copy", cascade="all, delete-orphan")
 
 
 from app.models.correction import Correction  # noqa: E402

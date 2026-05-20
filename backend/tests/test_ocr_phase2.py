@@ -26,7 +26,11 @@ def _create_processed_copy(client, cleanup_ids, title: str) -> tuple[str, str]:
     cleanup_ids["exam_ids"].append(UUID(exam_id))
 
     pdf = _make_pdf_bytes(pages=1)
-    r_copy = client.post("/copies", data={"exam_id": exam_id}, files={"file": ("copy.pdf", pdf, "application/pdf")})
+    r_copy = client.post(
+        "/copies",
+        data={"exam_id": exam_id},
+        files={"file": ("copy.pdf", pdf, "application/pdf")},
+    )
     assert r_copy.status_code == 200
     copy_id = r_copy.json()["id"]
 

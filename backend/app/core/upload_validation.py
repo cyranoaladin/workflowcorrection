@@ -25,9 +25,8 @@ def validate_pdf_upload(upload: UploadFile) -> None:
         upload.file.seek(0)
         head = upload.file.read(1024) or b""
         upload.file.seek(0)
-    except Exception:
-        raise UploadValidationError("unreadable_upload", "Failed to read uploaded file")
+    except Exception as exc:
+        raise UploadValidationError("unreadable_upload", "Failed to read uploaded file") from exc
 
     if b"%PDF-" not in head:
         raise UploadValidationError("invalid_pdf", "File does not look like a PDF")
-

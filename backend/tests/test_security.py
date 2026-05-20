@@ -78,6 +78,8 @@ def test_production_validation_accepts_hardened_settings():
         DATABASE_URL="postgresql+psycopg2://correction_user:strong-password@postgres:5432/correction_db",
         CORS_ALLOWED_ORIGINS="https://workflow.company.test",
         PUBLIC_API_BASE_URL="https://api.workflow.company.test",
+        RAG_HTTP_BASE_URL="https://rag-api.nexusreussite.academy",
+        RAG_HTTP_API_TOKEN="r" * 32,
     )
 
     settings.validate_for_runtime()

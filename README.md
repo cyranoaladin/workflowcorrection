@@ -37,9 +37,21 @@ Les briques IA (**Mathpix / Azure Document Intelligence / OpenAI**) sont **prés
   - `POST /copies/{copy_id}/ocr` (max `OCR_MAX_PAGES_PER_JOB`)
 - **Sécurité**: `OCR_ENABLE_PAID_CALLS=false` par défaut → aucun appel Mathpix/Azure/OpenAI ne part.
 
-**Phase 3 (à compléter)**:
+**Phase 3 (implémenté)**:
 - structuration par question
 - correction par barème + audit + rapport JSON complet
+- validation humaine des notes
+
+**Phase 1 RAG Foundations (implémenté)**:
+- Provider RAG HTTP par défaut en production (`RAG_PROVIDER=http`) vers `rag-api.nexusreussite.academy`.
+- Provider local `pgvector` conservé pour dev/CI/offline (`RAG_PROVIDER=pgvector`).
+- Interface commune `RagProvider` avec retrieval par `exam_id`, `question_id` et `kind`.
+- Collection production unique `rag_math_correction`, partitionnée par metadata.
+- Extension `pgvector`, tables `knowledge_documents` + `knowledge_chunks`, index HNSW et contraintes idempotentes.
+- Chunking intelligent : par question (corrigé/barème), par paragraphe avec overlap tokenisé, LaTeX-aware.
+- Task Celery `embed_exam` : indexation explicite et idempotente des documents d'un examen.
+- Endpoints : `POST /exams/{id}/embed`, `GET /exams/{id}/embed/status`, `GET /exams/{id}/knowledge`.
+- Garde-fou : aucun embedding automatique à l'upload, uniquement sur appel explicite.
 
 ## Structure
 

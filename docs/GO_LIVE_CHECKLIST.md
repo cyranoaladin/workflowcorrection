@@ -12,6 +12,10 @@
 - Keep `OCR_ENABLE_PAID_CALLS=false` until keys, quotas, and billing alerts are verified.
 - Set `CORS_ALLOWED_ORIGINS=https://<APP_DOMAIN>`.
 - Set `NEXT_PUBLIC_API_BASE_URL` to `https://<APP_DOMAIN>/api` (public, no secret).
+- Set `RAG_PROVIDER=http`.
+- Set `RAG_HTTP_BASE_URL=https://rag-api.nexusreussite.academy`.
+- Set `RAG_HTTP_COLLECTION=rag_math_correction`.
+- Set `RAG_HTTP_API_TOKEN` server-side only. Never expose it in frontend env.
 - **Do NOT set `NEXT_PUBLIC_ADMIN_API_TOKEN`** (removed) or **`NEXT_PUBLIC_DEV_ADMIN_TOKEN`**
   in any production file — the production build will fail-fast if `NEXT_PUBLIC_DEV_ADMIN_TOKEN`
   is present. The bearer token is injected by Caddy via
@@ -30,6 +34,7 @@ docker compose -f docker-compose.prod.yml --env-file .env ps
 curl -fsS https://$APP_DOMAIN/api/health
 curl -fsS https://$APP_DOMAIN/api/health/ready
 curl -fsS -H "Authorization: Bearer $ADMIN_API_TOKEN" https://$APP_DOMAIN/api/integrations/status
+curl -fsS -H "Authorization: Bearer $ADMIN_API_TOKEN" https://$APP_DOMAIN/api/exams
 ```
 
 Then sign in through Caddy basic auth and verify that the dashboard loads.

@@ -1,6 +1,7 @@
 """
 Tests for CSV import flow and rubric_json status interactions.
 """
+
 from __future__ import annotations
 
 import io
@@ -184,8 +185,9 @@ class TestCopyStatusFlow:
         cleanup_ids["exam_ids"].append(UUID(exam_id))
         pdf = self._make_pdf_bytes()
         copy_id = client.post(
-            "/copies", data={"exam_id": exam_id},
-            files={"file": ("c.pdf", pdf, "application/pdf")}
+            "/copies",
+            data={"exam_id": exam_id},
+            files={"file": ("c.pdf", pdf, "application/pdf")},
         ).json()["id"]
 
         r2 = client.post(f"/copies/{copy_id}/process")
@@ -200,8 +202,9 @@ class TestCopyStatusFlow:
         cleanup_ids["exam_ids"].append(UUID(exam_id))
         pdf = self._make_pdf_bytes()
         copy_id = client.post(
-            "/copies", data={"exam_id": exam_id},
-            files={"file": ("c.pdf", pdf, "application/pdf")}
+            "/copies",
+            data={"exam_id": exam_id},
+            files={"file": ("c.pdf", pdf, "application/pdf")},
         ).json()["id"]
         client.post(f"/copies/{copy_id}/process")
 
@@ -215,11 +218,13 @@ class TestCopyStatusFlow:
         cleanup_ids["exam_ids"].append(UUID(exam_id))
         pdf = self._make_pdf_bytes()
         copy_id = client.post(
-            "/copies", data={"exam_id": exam_id},
-            files={"file": ("c.pdf", pdf, "application/pdf")}
+            "/copies",
+            data={"exam_id": exam_id},
+            files={"file": ("c.pdf", pdf, "application/pdf")},
         ).json()["id"]
 
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import MagicMock, patch
+
         with patch("app.workers.tasks.grade_copy_task.apply_async") as mock_task:
             fake_result = MagicMock()
             fake_result.id = "fake-task-id-123"

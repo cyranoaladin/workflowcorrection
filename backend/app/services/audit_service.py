@@ -57,8 +57,7 @@ def audit_correction(corrections: list[dict], total_points: float, rubric_questi
 
     needs_human_review = bool(flags)
     overall_confidence = (
-        sum(c.get("confidence", 0) or 0 for c in corrections) / len(corrections)
-        if corrections else 0.0
+        sum(c.get("confidence", 0) or 0 for c in corrections) / len(corrections) if corrections else 0.0
     )
 
     if not settings.OPENAI_API_KEY or not corrections:
@@ -67,7 +66,9 @@ def audit_correction(corrections: list[dict], total_points: float, rubric_questi
             "overall_confidence": overall_confidence,
             "needs_human_review": needs_human_review,
             "flags": flags,
-            "summary": "Audit règles uniquement (LLM non disponible)" if not settings.OPENAI_API_KEY else "Aucune correction à auditer",
+            "summary": "Audit règles uniquement (LLM non disponible)"
+            if not settings.OPENAI_API_KEY
+            else "Aucune correction à auditer",
             "status": "ok",
         }
 
@@ -150,4 +151,3 @@ Donne ton verdict d'audit en JSON :
             "summary": f"Audit LLM échoué: {e}",
             "status": "error",
         }
-

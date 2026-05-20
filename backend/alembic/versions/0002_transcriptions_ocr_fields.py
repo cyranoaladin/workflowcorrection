@@ -9,6 +9,7 @@ Create Date: 2026-05-07
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "0002_transcriptions_ocr_fields"
@@ -31,4 +32,3 @@ def downgrade() -> None:
         batch_op.drop_column("raw_latex")
         batch_op.drop_column("raw_text")
         batch_op.drop_column("input_image_type")
-

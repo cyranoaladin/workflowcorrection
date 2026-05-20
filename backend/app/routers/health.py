@@ -61,7 +61,11 @@ def ready(db: Session = Depends(get_db)) -> JSONResponse:
         checks["storage"] = "error"
         errors["storage"] = f"{type(e).__name__}: {e}"
 
-    ok = all(v == "ok" for v in checks.values()) and {"database", "redis", "storage"}.issubset(checks.keys())
+    ok = all(v == "ok" for v in checks.values()) and {
+        "database",
+        "redis",
+        "storage",
+    }.issubset(checks.keys())
     payload = {"status": "ready" if ok else "not_ready", "checks": checks}
     if not ok:
         payload["errors"] = errors

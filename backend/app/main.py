@@ -1,16 +1,26 @@
 from __future__ import annotations
 
+import re
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi import Depends
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.database import engine
 from app.core.logging_config import configure_logging
 from app.core.security import require_admin
 from app.core.storage import get_storage
-from app.routers import copies, corrections, exams, health, integrations, pages
+from app.routers import (
+    copies,
+    corrections,
+    exams,
+    health,
+    integrations,
+    knowledge,
+    pages,
+)
 
 configure_logging()
 settings = get_settings()
@@ -21,6 +31,24 @@ settings.validate_for_runtime()
 async def lifespan(_: FastAPI):
     # Startup
     get_storage().ensure_base_dirs()
+    if settings.RAG_PROVIDER == "pgvector":
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("""
+                SELECT format_type(a.atttypid, a.atttypmod) AS type_name
+                FROM pg_attribute a
+                JOIN pg_class c ON a.attrelid = c.oid
+                WHERE c.relname = 'knowledge_chunks'
+                  AND a.attname = 'embedding'
+                  AND NOT a.attisdropped
+            """)
+            ).first()
+        if row:
+            match = re.fullmatch(r"vector\((\d+)\)", row.type_name)
+            if match and int(match.group(1)) != settings.EMBEDDING_DIMENSION:
+                raise RuntimeError(
+                    f"DB vector dim ({match.group(1)}) != EMBEDDING_DIMENSION ({settings.EMBEDDING_DIMENSION})"
+                )
     yield
     # Shutdown: nothing yet
 
@@ -42,3 +70,4 @@ app.include_router(exams.router, dependencies=protected)
 app.include_router(copies.router, dependencies=protected)
 app.include_router(pages.router, dependencies=protected)
 app.include_router(corrections.router, dependencies=protected)
+app.include_router(knowledge.router, dependencies=protected)

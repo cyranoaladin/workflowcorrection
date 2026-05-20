@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import os
-import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, Optional
+from typing import BinaryIO
 
 from fastapi import UploadFile
 
@@ -89,7 +88,7 @@ class LocalStorage:
         return self._safe_join(relative_path).exists()
 
 
-_storage: Optional[LocalStorage] = None
+_storage: LocalStorage | None = None
 
 
 def get_storage() -> LocalStorage:

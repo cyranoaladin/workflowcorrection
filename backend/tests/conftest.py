@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-
 # IMPORTANT: these env vars must be set before importing the app/settings.
 # APP_ENV=test ensures validate_for_runtime() is skipped even on prod servers.
 os.environ["APP_ENV"] = "test"

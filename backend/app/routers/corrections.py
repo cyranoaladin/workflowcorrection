@@ -61,7 +61,11 @@ def grade_copy(
             "message": "Copy already graded. Use force=true to re-grade.",
         }
 
-    if copy.status not in (CopyStatus.processed_pages.value, CopyStatus.corrected.value, CopyStatus.ocr_pending.value):
+    if copy.status not in (
+        CopyStatus.processed_pages.value,
+        CopyStatus.corrected.value,
+        CopyStatus.ocr_pending.value,
+    ):
         raise HTTPException(
             status_code=409,
             detail={
@@ -89,16 +93,11 @@ def grade_copy(
 
     # Gather all transcriptions for this copy (concatenated per page)
     transcriptions = (
-        db.query(Transcription)
-        .filter(Transcription.copy_id == copy_id)
-        .order_by(Transcription.created_at.desc())
-        .all()
+        db.query(Transcription).filter(Transcription.copy_id == copy_id).order_by(Transcription.created_at.desc()).all()
     )
 
     full_transcription = "\n\n".join(
-        t.final_text or t.raw_text or ""
-        for t in transcriptions
-        if (t.final_text or t.raw_text)
+        t.final_text or t.raw_text or "" for t in transcriptions if (t.final_text or t.raw_text)
     )
 
     if not full_transcription.strip():
@@ -122,7 +121,7 @@ def grade_copy(
     for q in rubric_questions:
         qid = str(q.get("id", "unknown"))
         q_points_max = _to_float(q.get("points_max"), 0.0) or 0.0
-        result = grade_question(qid, q, full_transcription) or {}
+        result = grade_question(qid, q, full_transcription, exam_id=str(exam.id)) or {}
         if not isinstance(result, dict):
             result = {}
 
@@ -206,12 +205,7 @@ def get_report(copy_id: UUID, db: Session = Depends(get_db)) -> dict:
         )
 
     exam: Exam = db.get(Exam, copy.exam_id)
-    corrections_db = (
-        db.query(Correction)
-        .filter(Correction.copy_id == copy_id)
-        .order_by(Correction.question_id)
-        .all()
-    )
+    corrections_db = db.query(Correction).filter(Correction.copy_id == copy_id).order_by(Correction.question_id).all()
 
     corrections_list = [
         {
@@ -263,8 +257,8 @@ def validate_correction(
     if points_awarded is not None:
         try:
             parsed_points = float(points_awarded)
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="points_awarded must be a number")
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail="points_awarded must be a number") from exc
 
         if parsed_points < 0:
             raise HTTPException(
@@ -351,8 +345,7 @@ def get_exam_bilan(exam_id: UUID, db: Session = Depends(get_db)) -> dict:
                 "score": float(c.total_score),
                 "score_over_20": round(float(c.total_score) / total_max * 20, 2),
                 "needs_human_review": any(
-                    corr.needs_human_review
-                    for corr in db.query(Correction).filter(Correction.copy_id == c.id).all()
+                    corr.needs_human_review for corr in db.query(Correction).filter(Correction.copy_id == c.id).all()
                 ),
             }
             for c in corrected

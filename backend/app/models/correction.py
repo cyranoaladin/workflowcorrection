@@ -27,8 +27,7 @@ class Correction(TimestampMixin, Base):
     needs_human_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     validated_by_human: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
-    copy: Mapped["StudentCopy"] = relationship(back_populates="corrections")
+    copy: Mapped[StudentCopy] = relationship(back_populates="corrections")
 
 
 from app.models.copy import StudentCopy  # noqa: E402
-

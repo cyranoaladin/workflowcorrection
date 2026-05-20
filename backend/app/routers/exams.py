@@ -2,20 +2,18 @@ from __future__ import annotations
 
 import csv
 import io
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.database import get_db
 from app.core.storage import StorageError, get_storage
 from app.core.upload_validation import UploadValidationError, validate_pdf_upload
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.exam import Exam
 from app.schemas.exam_schema import ExamCreate, ExamRead, ExamUpdate
-
-from app.core.database import get_db
 
 router = APIRouter(prefix="/exams", tags=["exams"])
 
@@ -62,35 +60,45 @@ def upload_exam_files(
         try:
             validate_pdf_upload(subject_pdf)
         except UploadValidationError as e:
-            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message}) from e
         try:
-            stored = storage.save_upload(subject_pdf, f"exams/{exam_id}/subject.pdf", max_bytes=settings.max_upload_bytes)
+            stored = storage.save_upload(
+                subject_pdf,
+                f"exams/{exam_id}/subject.pdf",
+                max_bytes=settings.max_upload_bytes,
+            )
         except StorageError as e:
-            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)}) from e
         exam.subject_pdf_path = stored.relative_path
 
     if correction_pdf is not None:
         try:
             validate_pdf_upload(correction_pdf)
         except UploadValidationError as e:
-            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message}) from e
         try:
             stored = storage.save_upload(
-                correction_pdf, f"exams/{exam_id}/correction.pdf", max_bytes=settings.max_upload_bytes
+                correction_pdf,
+                f"exams/{exam_id}/correction.pdf",
+                max_bytes=settings.max_upload_bytes,
             )
         except StorageError as e:
-            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)}) from e
         exam.correction_pdf_path = stored.relative_path
 
     if rubric_pdf is not None:
         try:
             validate_pdf_upload(rubric_pdf)
         except UploadValidationError as e:
-            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message}) from e
         try:
-            stored = storage.save_upload(rubric_pdf, f"exams/{exam_id}/rubric.pdf", max_bytes=settings.max_upload_bytes)
+            stored = storage.save_upload(
+                rubric_pdf,
+                f"exams/{exam_id}/rubric.pdf",
+                max_bytes=settings.max_upload_bytes,
+            )
         except StorageError as e:
-            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)}) from e
         exam.rubric_pdf_path = stored.relative_path
 
     if rubric_tex is not None and rubric_tex.strip():
@@ -130,7 +138,19 @@ def update_exam(
 @router.post("/{exam_id}/rubric-json", response_model=ExamRead)
 def set_rubric_json(
     exam_id: UUID,
-    rubric: dict = Body(..., example={"questions": [{"id": "Q1", "label": "Calculer la dérivée", "points_max": 4, "criteria": ["Méthode correcte", "Résultat exact"]}]}),
+    rubric: dict = Body(
+        ...,
+        example={
+            "questions": [
+                {
+                    "id": "Q1",
+                    "label": "Calculer la dérivée",
+                    "points_max": 4,
+                    "criteria": ["Méthode correcte", "Résultat exact"],
+                }
+            ]
+        },
+    ),
     db: Session = Depends(get_db),
 ) -> Exam:
     """
@@ -146,15 +166,36 @@ def set_rubric_json(
     if not isinstance(questions, list) or not questions:
         raise HTTPException(
             status_code=422,
-            detail={"error": "invalid_rubric", "message": "rubric must contain a non-empty 'questions' list"},
+            detail={
+                "error": "invalid_rubric",
+                "message": "rubric must contain a non-empty 'questions' list",
+            },
         )
     for i, q in enumerate(questions):
         if not isinstance(q, dict):
-            raise HTTPException(status_code=422, detail={"error": "invalid_question", "message": f"Question {i} must be an object"})
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "invalid_question",
+                    "message": f"Question {i} must be an object",
+                },
+            )
         if not q.get("id"):
-            raise HTTPException(status_code=422, detail={"error": "missing_question_id", "message": f"Question {i} missing 'id'"})
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "missing_question_id",
+                    "message": f"Question {i} missing 'id'",
+                },
+            )
         if q.get("points_max") is None:
-            raise HTTPException(status_code=422, detail={"error": "missing_points_max", "message": f"Question {q.get('id')} missing 'points_max'"})
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "missing_points_max",
+                    "message": f"Question {q.get('id')} missing 'points_max'",
+                },
+            )
 
     exam.rubric_json = rubric
     db.add(exam)
@@ -185,10 +226,18 @@ def import_students_csv(
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
 
-    if file.content_type not in ("text/csv", "text/plain", "application/csv", "application/octet-stream"):
+    if file.content_type not in (
+        "text/csv",
+        "text/plain",
+        "application/csv",
+        "application/octet-stream",
+    ):
         content_type = file.content_type or ""
         if not content_type.startswith("text/"):
-            raise HTTPException(status_code=415, detail={"error": "invalid_file_type", "message": "File must be a CSV"})
+            raise HTTPException(
+                status_code=415,
+                detail={"error": "invalid_file_type", "message": "File must be a CSV"},
+            )
 
     raw = file.file.read()
     try:
@@ -196,8 +245,14 @@ def import_students_csv(
     except UnicodeDecodeError:
         try:
             text = raw.decode("latin-1")
-        except UnicodeDecodeError:
-            raise HTTPException(status_code=422, detail={"error": "encoding_error", "message": "Cannot decode CSV file. Use UTF-8 or Latin-1 encoding."})
+        except UnicodeDecodeError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "error": "encoding_error",
+                    "message": "Cannot decode CSV file. Use UTF-8 or Latin-1 encoding.",
+                },
+            ) from exc
 
     reader = csv.DictReader(io.StringIO(text))
 
@@ -215,7 +270,7 @@ def import_students_csv(
     skipped = 0
     errors: list[dict] = []
 
-    for i, row in enumerate(reader, start=2):
+    for _i, row in enumerate(reader, start=2):
         clean = {
             (k or "").strip().lower(): str(v).strip() if v is not None and not isinstance(v, list) else ""
             for k, v in row.items()

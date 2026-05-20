@@ -17,4 +17,3 @@ class PageRead(BaseModel):
     width: int | None
     height: int | None
     created_at: datetime
-

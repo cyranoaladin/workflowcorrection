@@ -22,4 +22,3 @@ class CorrectionRead(BaseModel):
     validated_by_human: bool
     created_at: datetime
     updated_at: datetime
-

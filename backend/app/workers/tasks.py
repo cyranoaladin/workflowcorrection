@@ -1,16 +1,15 @@
 from __future__ import annotations
 
-import uuid
 import shutil
+import uuid
 from decimal import Decimal
-from pathlib import Path
 from uuid import UUID
 
 from celery.utils.log import get_task_logger
 from sqlalchemy.orm import Session
 
-from app.core.database import SessionLocal
 from app.core.config import get_settings
+from app.core.database import SessionLocal
 from app.core.storage import get_storage
 from app.models.copy import CopyStatus, StudentCopy
 from app.models.correction import Correction
@@ -186,9 +185,7 @@ def grade_copy_task(self, copy_id: str, force: bool = False) -> dict:
             .all()
         )
         full_transcription = "\n\n".join(
-            t.final_text or t.raw_text or ""
-            for t in transcriptions
-            if (t.final_text or t.raw_text)
+            t.final_text or t.raw_text or "" for t in transcriptions if (t.final_text or t.raw_text)
         )
         if not full_transcription.strip():
             return {"status": "error", "reason": "no_transcription"}
@@ -201,7 +198,7 @@ def grade_copy_task(self, copy_id: str, force: bool = False) -> dict:
         for q in rubric_questions:
             qid = str(q.get("id", "unknown"))
             self.update_state(state="PROGRESS", meta={"grading_question": qid})
-            result = grade_question(qid, q, full_transcription)
+            result = grade_question(qid, q, full_transcription, exam_id=str(copy.exam_id))
             grading_results.append(result)
 
             if result.get("status") == "ok" and result.get("points_awarded") is not None:

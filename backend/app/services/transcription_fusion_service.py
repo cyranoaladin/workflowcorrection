@@ -73,7 +73,11 @@ def fuse_transcriptions(
 
     # Conservative confidence: min of provided confidences (or 0.0 if missing)
     confidences: list[float] = []
-    for v in ((mathpix or {}).get("confidence"), (azure or {}).get("confidence"), (openai or {}).get("confidence")):
+    for v in (
+        (mathpix or {}).get("confidence"),
+        (azure or {}).get("confidence"),
+        (openai or {}).get("confidence"),
+    ):
         try:
             if v is None:
                 continue
@@ -99,4 +103,3 @@ def fuse_transcriptions(
         "confidence": confidence,
         "needs_human_review": needs_human_review,
     }
-

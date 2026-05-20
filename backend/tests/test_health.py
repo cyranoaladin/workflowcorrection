@@ -21,4 +21,3 @@ def test_health_ready(client):
     assert data["checks"]["database"] == "ok"
     assert data["checks"]["redis"] == "ok"
     assert data["checks"]["storage"] == "ok"
-

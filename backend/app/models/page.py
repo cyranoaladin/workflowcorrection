@@ -25,8 +25,7 @@ class CopyPage(Base):
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    copy: Mapped["StudentCopy"] = relationship(back_populates="pages")
+    copy: Mapped[StudentCopy] = relationship(back_populates="pages")
 
 
 from app.models.copy import StudentCopy  # noqa: E402
-

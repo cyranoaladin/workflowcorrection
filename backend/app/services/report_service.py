@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ def build_report(
 
     return {
         "copy_id": copy_id,
-        "generated_at": datetime.now(tz=timezone.utc).isoformat(),
+        "generated_at": datetime.now(tz=UTC).isoformat(),
         "student": {
             "name": student_name,
             "code": copy_code,
@@ -91,4 +91,3 @@ def _compute_mention(percentage: float) -> str:
     if percentage >= 50:
         return "Passable"
     return "Insuffisant"
-
