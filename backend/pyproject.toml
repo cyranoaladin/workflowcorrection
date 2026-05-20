@@ -11,3 +11,8 @@ ignore = [
 
 [tool.ruff.format]
 quote-style = "double"
+
+[tool.pytest.ini_options]
+markers = [
+  "e2e: end-to-end pipeline tests",
+]
