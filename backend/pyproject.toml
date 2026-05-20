@@ -15,4 +15,5 @@ quote-style = "double"
 [tool.pytest.ini_options]
 markers = [
   "e2e: end-to-end pipeline tests",
+  "smoke: production smoke tests (require PUBLIC_API_BASE_URL)",
 ]
