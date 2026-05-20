@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import time
 from collections.abc import Callable
@@ -107,18 +108,17 @@ class HttpRagProvider:
                     "collection": self._collection,
                 }
 
+        hints = {
+            "collection": self._collection,
+            "title": title or source_path,
+            **{key: str(value) for key, value in merged_metadata.items() if value is not None},
+        }
+        filename = f"{source_path.replace('/', '_')}.md" if source_path else "document.md"
         response = self._request(
             "POST",
-            "/ingest",
-            json={
-                "source_type": "markdown",
-                "source": text,
-                "hints": {
-                    "collection": self._collection,
-                    "title": title or source_path,
-                    **{key: str(value) for key, value in merged_metadata.items() if value is not None},
-                },
-            },
+            "/ingest/upload-files",
+            files=[("files", (filename, text.encode("utf-8"), "text/markdown"))],
+            params={"metadata": json.dumps(hints), "mode": "text"},
         )
         return response.json()
 

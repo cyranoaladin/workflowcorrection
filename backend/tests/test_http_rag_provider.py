@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import httpx
 import pytest
 
@@ -108,3 +110,47 @@ def test_http_rag_provider_timeout_surfaces_as_runtime_error() -> None:
 
     with pytest.raises(RuntimeError, match="rag_http_request_failed"):
         provider.retrieve(exam_id="exam-1", question_id=None, query="x")
+
+
+def test_ingest_document_uses_upload_files_endpoint() -> None:
+    """ingest_document must POST multipart to /ingest/upload-files, not JSON to /ingest."""
+    captured_requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured_requests.append(request)
+        if "/check-duplicates" in str(request.url):
+            return httpx.Response(200, json={"results": [{"already_ingested": False}]})
+        if "/upload-files" in str(request.url):
+            return httpx.Response(
+                200,
+                json={"status": "ok", "total_added": 3, "total_skipped": 0, "results": []},
+            )
+        return httpx.Response(404)
+
+    provider = HttpRagProvider(
+        base_url="https://rag.example.test",
+        token="test-token",
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = provider.ingest_document(
+        exam_id="exam-42",
+        kind="correction",
+        source_path="exams/42/correction.md",
+        content_hash="abc123",
+        title="Correction Exam 42",
+        chunks_or_text="# Q1\nLa derivee de x^2 est 2x.",
+    )
+
+    assert result["status"] == "ok"
+    assert result["total_added"] == 3
+
+    # Verify the upload request
+    upload_req = [r for r in captured_requests if "/upload-files" in str(r.url)][0]
+    assert upload_req.method == "POST"
+    assert "multipart/form-data" in upload_req.headers.get("content-type", "")
+
+    # Verify metadata query param contains collection and metadata
+    url_str = str(upload_req.url)
+    assert "metadata=" in url_str
+    assert "mode=text" in url_str
