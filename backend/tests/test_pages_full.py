@@ -1,4 +1,5 @@
 """Tests for GET /copies/{copy_id}/pages-full batch endpoint."""
+
 from __future__ import annotations
 
 import io
