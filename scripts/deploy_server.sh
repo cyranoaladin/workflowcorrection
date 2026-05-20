@@ -18,35 +18,51 @@ PROJECT_DIR="/opt/math-correction"
 
 cd "$PROJECT_DIR"
 
-echo "=== [1/9] Pull du code depuis GitHub ==="
+echo "=== [1/10] Pull du code depuis GitHub ==="
 git stash 2>/dev/null || true
 git pull origin main
 git stash pop 2>/dev/null || true
 
-echo "=== [2/9] Regénérer package-lock.json si nécessaire ==="
+echo "=== [2/10] Regénérer package-lock.json si nécessaire ==="
 docker run --rm -v "$(pwd)/frontend:/app" -w /app node:20-alpine sh -c \
   'npm install --package-lock-only 2>&1 | tail -3'
 
-echo "=== [3/9] Arrêt et nettoyage des anciens containers ==="
+echo "=== [3/10] Sauvegarde DB (filet de sécurité) ==="
+BACKUP_DIR="$PROJECT_DIR/backups/$(date +%Y%m%d_%H%M%S)"
+mkdir -p "$BACKUP_DIR"
+if docker compose -f "$COMPOSE_FILE" ps postgres --status running -q 2>/dev/null | grep -q .; then
+  docker compose -f "$COMPOSE_FILE" exec -T postgres \
+    pg_dump -U "${POSTGRES_USER:-postgres}" "${POSTGRES_DB:-math_correction}" \
+    > "$BACKUP_DIR/db_pre_deploy.sql" 2>/dev/null \
+    && echo "  ✓ Backup DB → $BACKUP_DIR/db_pre_deploy.sql" \
+    || echo "  ⚠ pg_dump skipped (container not ready or first deploy)"
+else
+  echo "  ⚠ Postgres not running, skipping backup"
+fi
+
+echo "=== [4/10] Arrêt et nettoyage des anciens containers ==="
 docker compose -f "$COMPOSE_FILE" down --remove-orphans || true
 docker container prune -f 2>/dev/null || true
 
-echo "=== [4/9] Rebuild des images applicatives (no-cache) ==="
+echo "=== [5/10] Rebuild des images applicatives (no-cache) ==="
 docker compose -f "$COMPOSE_FILE" build --no-cache backend worker frontend
 
-echo "=== [5/9] Démarrage des dépendances ==="
+echo "=== [6/10] Démarrage des dépendances ==="
 docker compose -f "$COMPOSE_FILE" up -d postgres redis
+echo "  Attente healthcheck postgres…"
+docker compose -f "$COMPOSE_FILE" exec -T postgres sh -c \
+  'until pg_isready -U ${POSTGRES_USER:-postgres}; do sleep 1; done'
 
-echo "=== [6/9] Migration base de données ==="
+echo "=== [7/10] Migration base de données ==="
 docker compose -f "$COMPOSE_FILE" run --rm backend alembic upgrade head
 
-echo "=== [7/9] Démarrage de tous les services ==="
+echo "=== [8/10] Démarrage de tous les services ==="
 docker compose -f "$COMPOSE_FILE" up -d
 
-echo "=== [8/9] Vérification Nginx ==="
+echo "=== [9/10] Vérification Nginx ==="
 nginx -t && systemctl reload nginx || echo "⚠ Nginx reload skipped"
 
-echo "=== [9/9] Tests de santé ==="
+echo "=== [10/10] Tests de santé ==="
 sleep 5
 
 FAIL=0
