@@ -19,7 +19,7 @@ PROJECT_DIR="/opt/math-correction"
 cd "$PROJECT_DIR"
 
 echo "=== [1/10] Pull du code depuis GitHub ==="
-git stash 2>/dev/null || true
+git stash --include-untracked 2>/dev/null || true
 git pull origin main
 git stash pop 2>/dev/null || true
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-set -euo pipefail
+# Go-live 48h monitoring — runs hourly via cron.
+# Uses set -eu but NOT pipefail to avoid SIGPIPE exits from head/tail.
+set -eu
 TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 LOG=/var/log/wc-golive-monitor.log
 
@@ -7,22 +9,22 @@ _grep_errors() {
   local out
   out=$(docker logs "$1" --since 1h 2>&1 | grep -iE "error|exception|critical" | tail -5) || true
   if [ -z "$out" ]; then
-    echo "(none)"
+    printf '%s\n' "(none)"
   else
-    echo "$out"
+    printf '%s\n' "$out"
   fi
 }
 
 {
-  echo "===== $TS ====="
+  printf '%s\n' "===== $TS ====="
 
-  echo "--- backend errors (last 1h) ---"
+  printf '%s\n' "--- backend errors (last 1h) ---"
   _grep_errors math-correction-backend-1
 
-  echo "--- worker errors (last 1h) ---"
+  printf '%s\n' "--- worker errors (last 1h) ---"
   _grep_errors math-correction-worker-1
 
-  echo "--- DB metrics ---"
+  printf '%s\n' "--- DB metrics ---"
   docker compose -f /opt/math-correction/docker-compose.labomaths.yml exec -T postgres sh -lc \
     'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -t -c "
       SELECT
@@ -32,20 +34,20 @@ _grep_errors() {
         (SELECT COUNT(*) FROM corrections WHERE needs_human_review = true) AS needs_review,
         (SELECT COUNT(*) FROM knowledge_documents) AS rag_docs,
         (SELECT COUNT(*) FROM knowledge_chunks) AS rag_chunks
-    ;"' 2>&1 | head -3
+    ;"' 2>&1 || printf '%s\n' "DB QUERY FAILED"
 
-  echo "--- Health ---"
-  if health_json=$(curl -fsS http://localhost:8010/health/ready 2>/dev/null); then
-    echo "$health_json" | python3 -m json.tool | head -20
+  printf '%s\n' "--- Health ---"
+  if health_json=$(curl -fsS http://localhost:8010/health/ready 2>/tmp/wc-health-err); then
+    printf '%s\n' "$health_json" | python3 -m json.tool 2>/dev/null || printf '%s\n' "$health_json"
   else
-    echo "HEALTH CHECK FAILED (curl exit $?)"
+    printf 'HEALTH CHECK FAILED (curl exit %d): %s\n' "$?" "$(cat /tmp/wc-health-err 2>/dev/null)"
   fi
 
-  echo "--- Disk ---"
-  df -h /opt/math-correction/storage /var/lib/docker 2>&1 | tail -3
+  printf '%s\n' "--- Disk ---"
+  df -h /opt/math-correction/storage /var/lib/docker 2>&1 || true
 
-  echo "--- Container stats (top 5 by memory) ---"
-  docker stats --no-stream --format "{{.Container}}\t{{.MemUsage}}\t{{.CPUPerc}}" | sort -k2 -h -r | head -5
+  printf '%s\n' "--- Container stats (top 5 by memory) ---"
+  docker stats --no-stream --format "{{.Container}}\t{{.MemUsage}}\t{{.CPUPerc}}" 2>&1 | sort -k2 -h -r | head -5 || true
 
-  echo ""
+  printf '\n'
 } >> "$LOG" 2>&1
