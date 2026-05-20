@@ -1,415 +1,113 @@
 # Math Correction Platform
 
-> Production deployment notes are in [`docs/GO_LIVE_CHECKLIST.md`](docs/GO_LIVE_CHECKLIST.md) and [`docs/SECURITY.md`](docs/SECURITY.md). Business API routes require `Authorization: Bearer <ADMIN_API_TOKEN>`; only health endpoints are public.
+Plateforme de **correction automatique de copies de mathematiques** avec pipeline complet : OCR multi-source, notation IA avec contexte RAG, audit LLM-as-judge, et validation humaine.
 
-Plateforme MVP pour des **copies de maths scannées** (PDF) avec un workflow **traçable** et **asynchrone**:
+> **Production** : [maths.labomaths.tn/correction](https://maths.labomaths.tn/correction/)
 
-- upload de fichiers (sujet / corrigé / barème / copies) ;
-- stockage propre sur disque (prêt pour migration MinIO) ;
-- conversion **PDF → images PNG à 300 DPI** (PyMuPDF) ;
-- prétraitement image (OpenCV) ;
-- création des pages en base (`copy_pages`) ;
-- exposition des images via API ;
-- interface Next.js locale pour visualiser pages et statuts.
+## Fonctionnalites
 
-Les briques IA (**Mathpix / Azure Document Intelligence / OpenAI**) sont **présentes en stubs** (fonctions + gestion “skipped” si clés absentes), mais **non activées** pour “corriger magiquement”.
+- **Upload** : sujet PDF, corrige PDF, bareme PDF/JSON, copies eleves
+- **OCR multi-source** : Azure Document Intelligence, Mathpix, OpenAI Vision, fusion intelligente
+- **RAG** : indexation automatique du corrige et du bareme, injection de contexte dans la notation
+- **Notation IA** : LLM grading par question avec baremes structures
+- **Audit** : verification rule-based + LLM-as-judge avec recommandation tri-state (validate / review_partial / review_full)
+- **UI complette** : Next.js avec suivi RAG, flags d'audit, validation manuelle, export bilan CSV
 
-## MVP vs Phase 2
-
-**MVP fonctionnel (implémenté)**:
-- CRUD minimal examens + copies
-- upload PDF → stockage
-- tâche Celery `process_copy`:
-  - rendu 300 DPI
-  - prétraitement
-  - pages + images servies
-- UI Next.js locale: dashboard, listes, détail copy + viewer
-
-**Phase 2 (OCR contrôlé, implémenté mais désactivé par défaut)**:
-- OCR page par page: Mathpix / Azure Document Intelligence / OpenAI Vision
-- stockage traçable en base (table `transcriptions`, brut + fusion)
-- endpoints de consultation:
-  - `GET /pages/{page_id}/transcriptions`
-  - `GET /copies/{copy_id}/transcriptions`
-- fusion prudente:
-  - `POST /pages/{page_id}/ocr/fuse` (ne fait aucun appel payant)
-- OCR copie (optionnel) **limité**:
-  - `POST /copies/{copy_id}/ocr` (max `OCR_MAX_PAGES_PER_JOB`)
-- **Sécurité**: `OCR_ENABLE_PAID_CALLS=false` par défaut → aucun appel Mathpix/Azure/OpenAI ne part.
-
-**Phase 3 (implémenté)**:
-- structuration par question
-- correction par barème + audit + rapport JSON complet
-- validation humaine des notes
-
-**Phase 1 RAG Foundations (implémenté)**:
-- Provider RAG HTTP par défaut en production (`RAG_PROVIDER=http`) vers `rag-api.nexusreussite.academy`.
-- Provider local `pgvector` conservé pour dev/CI/offline (`RAG_PROVIDER=pgvector`).
-- Interface commune `RagProvider` avec retrieval par `exam_id`, `question_id` et `kind`.
-- Collection production unique `rag_math_correction`, partitionnée par metadata.
-- Extension `pgvector`, tables `knowledge_documents` + `knowledge_chunks`, index HNSW et contraintes idempotentes.
-- Chunking intelligent : par question (corrigé/barème), par paragraphe avec overlap tokenisé, LaTeX-aware.
-- Task Celery `embed_exam` : indexation explicite et idempotente des documents d'un examen.
-- Endpoints : `POST /exams/{id}/embed`, `GET /exams/{id}/embed/status`, `GET /exams/{id}/knowledge`.
-- Garde-fou : aucun embedding automatique à l'upload, uniquement sur appel explicite.
-
-## Structure
+## Architecture
 
 ```
-backend/   FastAPI + SQLAlchemy + Alembic + Celery
-frontend/  Next.js local
-scripts/   init/deploy/backup/smoke-test
-storage/   examens/copies/pages/... (bind mount)
+backend/    FastAPI + SQLAlchemy 2.0 + Alembic + Celery (5 containers)
+frontend/   Next.js 16 + React 19 + Tailwind (1 container)
+storage/    examens/copies/pages/reports (bind mount)
+scripts/    deploy/backup/smoke-test
+
+Stack RAG colocalise (3 containers) :
+  compose-ingestor-1 (port 8001) + compose-chroma-1 + compose-ollama-1
+  Communication via reseau Docker compose_rag_ui_net
 ```
 
-## Installation serveur (cible: `/opt/math-correction`)
+Voir [docs/ARCHITECTURE_RAG.md](docs/ARCHITECTURE_RAG.md) pour le detail.
 
-### 1) Initialisation serveur (optionnel)
-
-Sur le serveur (root):
+## Quickstart developpement
 
 ```bash
-/opt/math-correction/scripts/init-server.sh
-```
-
-Ce script:
-- met à jour `apt` ;
-- installe Docker si absent ;
-- vérifie Docker Compose ;
-- crée `/opt/math-correction` + sous-dossiers `storage/` ;
-- vérifie si le port `8000` est libre.
-
-### 2) Déployer le code
-
-Option A (recommandé): via Git
-
-```bash
-cd /opt
-git clone <ton_repo_git> math-correction
-cd /opt/math-correction
-```
-
-Option B: copier le dossier (scp/rsync) vers `/opt/math-correction`.
-
-### 3) Configurer l’environnement
-
-```bash
-cd /opt/math-correction
 cp .env.example .env
+# Remplir OPENAI_API_KEY, POSTGRES_PASSWORD, etc.
+docker compose up -d --build
+docker compose logs -f backend
 ```
 
-Puis **modifie impérativement**:
-- `POSTGRES_PASSWORD`
-- `DATABASE_URL` (doit matcher le password)
-- `JWT_SECRET` (même si auth non utilisée en MVP)
+Frontend local :
 
-OCR (Phase 2) — **par défaut les appels payants sont désactivés**:
-- `OCR_ENABLE_PAID_CALLS=false`
-- `OCR_MAX_PAGES_PER_JOB=3`
-- `OCR_DEFAULT_IMAGE_TYPE=processed`
-- renseigner ensuite les clés `MATHPIX_*`, `AZURE_*`, `OPENAI_*` si besoin.
+```bash
+cd frontend
+cp .env.local.example .env.local
+npm install && npm run dev
+```
 
-### 4) Lancer la stack
+## Quickstart production
 
-**Développement local** (expose le backend sur le port 8000):
+Voir [docs/GO_LIVE_CHECKLIST.md](docs/GO_LIVE_CHECKLIST.md) pour le deploiement complet.
 
 ```bash
 cd /opt/math-correction
-docker compose up -d --build
-docker compose ps
-docker compose logs -f backend
-docker compose logs -f worker
-```
-
-**Production** (Caddy + TLS, backend non exposé):
-
-```bash
 cp .env.production.example .env
-# Remplir toutes les valeurs replace_with_*
-docker compose -f docker-compose.prod.yml --env-file .env up -d --build
-docker compose -f docker-compose.prod.yml --env-file .env ps
+# Remplir toutes les variables (voir docs/OPERATIONS.md)
+docker compose -f docker-compose.labomaths.yml up -d --build
+curl http://localhost:8010/health/ready
 ```
 
-Health checks (dev — direct backend):
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [USER_GUIDE.md](docs/USER_GUIDE.md) | Guide enseignant : workflow complet de correction |
+| [OPERATIONS.md](docs/OPERATIONS.md) | Runbook ops : architecture, commandes, diagnostic |
+| [ARCHITECTURE_RAG.md](docs/ARCHITECTURE_RAG.md) | Topologie Docker et RAG |
+| [SECURITY.md](docs/SECURITY.md) | Politique de securite |
+| [ROLLBACK_PHASE1.md](docs/ROLLBACK_PHASE1.md) | Procedure de rollback |
+| [CONTRIBUTING.md](docs/CONTRIBUTING.md) | Guide de contribution |
+| [ROADMAP.md](docs/ROADMAP.md) | Phase 2 et au-dela |
+
+## Tests
 
 ```bash
-curl http://localhost:8000/health
-```
-
-Health checks (production — via Caddy):
-
-```bash
-curl https://$APP_DOMAIN/api/health
-curl https://$APP_DOMAIN/api/health/ready
-```
-
-## Frontend local (ta machine)
-
-Pré-requis: Node.js récent (idéalement Node 20+).
-
-```bash
-cd frontend
-cp .env.local.example .env.local
-npm install
-npm run dev
-```
-
-`frontend/.env.local` doit contenir:
-
-`NEXT_PUBLIC_API_BASE_URL=http://localhost:8000`
-
-> **Sécurité** : Ne jamais ajouter `NEXT_PUBLIC_ADMIN_API_TOKEN` dans `.env.local` ni dans aucun fichier frontend.
-> En production le token admin est injecté côté serveur par Caddy (`header_up Authorization`).
-
-## Tests API (upload + conversion)
-
-### 1) Créer un examen
-
-```bash
-curl -X POST http://localhost:8000/exams \
-  -H "Content-Type: application/json" \
-  -d '{"title":"DS Maths","level":"Terminale","session":"2026"}'
-```
-
-### 2) Uploader sujet/corrigé/barème
-
-```bash
-curl -X POST http://localhost:8000/exams/<exam_id>/files \
-  -F subject_pdf=@./sujet.pdf\;type=application/pdf \
-  -F correction_pdf=@./corrige.pdf\;type=application/pdf \
-  -F rubric_pdf=@./bareme.pdf\;type=application/pdf
-```
-
-### 3) Uploader une copie
-
-```bash
-curl -X POST http://localhost:8000/copies \
-  -F exam_id=<exam_id> \
-  -F student_name="Eleve 1" \
-  -F file=@./copie.pdf\;type=application/pdf
-```
-
-### 4) Lancer traitement (Celery)
-
-```bash
-curl -X POST http://localhost:8000/copies/<copy_id>/process
-curl http://localhost:8000/copies/<copy_id>/status
-curl http://localhost:8000/copies/<copy_id>/pages
-```
-
-### 4bis) Idempotence / relances
-
-Relance **sans** `force` (si déjà traité): pas d’erreur, réponse explicite:
-
-```bash
-curl -X POST "http://localhost:8000/copies/<copy_id>/process"
-```
-
-Relance **avec** `force=true` (purge pages + suppression des images dérivées + recalcul):
-
-```bash
-curl -X POST "http://localhost:8000/copies/<copy_id>/process?force=true"
-```
-
-### 5) Voir une page (image)
-
-```bash
-curl "http://localhost:8000/pages/<page_id>/image?type=original" -o page_original.png
-curl "http://localhost:8000/pages/<page_id>/image?type=processed" -o page_processed.png
-```
-
-## Tests automatiques (pytest)
-
-Dans `/opt/math-correction` (serveur):
-
-```bash
+# Dans le container backend
 docker compose exec backend pytest -q
+
+# Depuis le repo local (necessite venv avec dependances)
+cd backend && pytest -q
 ```
 
-## Scénario de test manuel complet
+25 fichiers de tests : unit, integration, E2E.
 
-1) Health checks:
+## Endpoints principaux
 
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/health/live
-curl http://localhost:8000/health/ready
-```
+| Methode | Endpoint | Description |
+|---------|----------|-------------|
+| GET | `/health/ready` | Healthcheck avec checks DB, Redis, Storage, RAG |
+| POST | `/exams` | Creer un examen |
+| POST | `/exams/{id}/files` | Uploader sujet/corrige/bareme |
+| POST | `/exams/{id}/rubric-json` | Definir le bareme structure |
+| POST | `/exams/{id}/embed` | Lancer l'indexation RAG |
+| GET | `/exams/{id}/knowledge` | Lister les documents indexes |
+| POST | `/copies` | Uploader une copie eleve |
+| POST | `/copies/{id}/process` | Traiter le PDF (pages) |
+| POST | `/pages/{id}/ocr/{source}` | OCR page (azure/mathpix/openai-vision/fuse) |
+| POST | `/copies/{id}/grade` | Lancer la notation IA |
+| GET | `/copies/{id}/report` | Rapport complet avec audit |
+| PATCH | `/corrections/{id}/validate` | Valider/modifier une note |
+| GET | `/exams/{id}/bilan` | Bilan classe (CSV) |
 
-2) Créer un examen:
+Tous les endpoints metier necessitent `Authorization: Bearer <ADMIN_API_TOKEN>`.
 
-```bash
-exam_json="$(curl -fsS -X POST http://localhost:8000/exams -H 'Content-Type: application/json' -d '{\"title\":\"DS Maths\",\"level\":\"Terminale\",\"session\":\"2026\"}')"
-echo "$exam_json"
-```
+## Securite
 
-3) Uploader sujet/corrigé/barème:
+- Ports PostgreSQL/Redis non exposes (reseau Docker uniquement)
+- Caddy injecte le Bearer token — le navigateur ne voit jamais le secret
+- `.env` en `chmod 600` sur le serveur
+- `OCR_ENABLE_PAID_CALLS=false` par defaut
 
-```bash
-exam_id="<exam_id>"
-curl -X POST "http://localhost:8000/exams/$exam_id/files" \
-  -F subject_pdf=@./sujet.pdf\;type=application/pdf \
-  -F correction_pdf=@./corrige.pdf\;type=application/pdf \
-  -F rubric_pdf=@./bareme.pdf\;type=application/pdf
-```
+## Licence
 
-4) Uploader une copie:
-
-```bash
-copy_json="$(curl -fsS -X POST http://localhost:8000/copies \
-  -F exam_id=$exam_id \
-  -F student_name='Eleve 1' \
-  -F copy_code='A1' \
-  -F file=@./copie.pdf\;type=application/pdf)"
-echo "$copy_json"
-```
-
-5) Lancer traitement:
-
-```bash
-copy_id="<copy_id>"
-curl -X POST "http://localhost:8000/copies/$copy_id/process"
-curl "http://localhost:8000/copies/$copy_id/status"
-curl "http://localhost:8000/copies/$copy_id/pages"
-```
-
-6) Afficher une page:
-
-```bash
-page_id="<page_id>"
-curl "http://localhost:8000/pages/$page_id/image?type=original" -o original.png
-curl "http://localhost:8000/pages/$page_id/image?type=processed" -o processed.png
-```
-
-7) Relancer traitement sans force:
-
-```bash
-curl -X POST "http://localhost:8000/copies/$copy_id/process"
-```
-
-8) Relancer traitement avec force:
-
-```bash
-curl -X POST "http://localhost:8000/copies/$copy_id/process?force=true"
-curl "http://localhost:8000/copies/$copy_id/pages"
-```
-
-9) Tester le frontend local:
-
-```bash
-cd frontend
-cp .env.local.example .env.local
-npm install
-npm run dev
-```
-
-## Intégrations (diagnostic, sans appel payant)
-
-```bash
-curl http://localhost:8000/integrations/status
-```
-
-## OCR contrôlé (Phase 2) — activation prudente
-
-### Variables `.env` (sécurité)
-
-Par défaut:
-- `OCR_ENABLE_PAID_CALLS=false` → les endpoints OCR payants répondent `403 paid_calls_disabled`.
-- `OCR_MAX_PAGES_PER_JOB=3` → limite dure sur `POST /copies/{copy_id}/ocr`.
-- `OCR_DEFAULT_IMAGE_TYPE=processed` → image par défaut (prétraitée) pour l’OCR.
-
-Pour activer (à faire **en connaissance de cause**):
-1) mettre `OCR_ENABLE_PAID_CALLS=true`
-2) renseigner **au moins une** intégration:
-   - Mathpix: `MATHPIX_APP_ID`, `MATHPIX_APP_KEY`
-   - Azure: `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`, `AZURE_DOCUMENT_INTELLIGENCE_KEY`
-   - OpenAI: `OPENAI_API_KEY`
-
-### Tester une seule page (recommandé)
-
-Prérequis: copie déjà `processed_pages` et `page_id` connu.
-
-Mathpix (1 page):
-
-```bash
-curl -X POST "http://localhost:8000/pages/$page_id/ocr/mathpix?image_type=processed"
-```
-
-Azure Document Intelligence (1 page):
-
-```bash
-curl -X POST "http://localhost:8000/pages/$page_id/ocr/azure?image_type=processed"
-```
-
-OpenAI Vision (1 page, transcription uniquement):
-
-```bash
-curl -X POST "http://localhost:8000/pages/$page_id/ocr/openai-vision?image_type=processed"
-```
-
-Consulter les transcriptions stockées:
-
-```bash
-curl "http://localhost:8000/pages/$page_id/transcriptions"
-curl "http://localhost:8000/copies/$copy_id/transcriptions"
-```
-
-Fusion prudente (sans appel payant, utilise les transcriptions existantes):
-
-```bash
-curl -X POST "http://localhost:8000/pages/$page_id/ocr/fuse"
-```
-
-### OCR d’une copie (limité)
-
-⚠️ Ce endpoint peut déclencher plusieurs appels (boucle sur pages), mais **ne dépassera jamais** `OCR_MAX_PAGES_PER_JOB`.
-⚠️ Garde-fou supplémentaire: il exige `confirm_paid_calls=true` quand `OCR_ENABLE_PAID_CALLS=true`.
-
-```bash
-curl -X POST "http://localhost:8000/copies/$copy_id/ocr?max_pages=3&sources=azure&confirm_paid_calls=true"
-```
-
-Sources possibles: `sources=azure&sources=mathpix&sources=openai_vision`
-
-### Coût & prudence
-
-- Ne pas activer `OCR_ENABLE_PAID_CALLS=true` tant que tu n’es pas prêt à assumer des coûts.
-- Toujours commencer par 1 page, comparer les sorties, puis fusionner et valider humainement.
-- Ne pas lancer d’OCR sur “toutes les copies” sans limite stricte.
-
-## Endpoints (backend)
-
-- `GET /health`
-- `POST /exams`
-- `GET /exams`
-- `GET /exams/{exam_id}`
-- `POST /exams/{exam_id}/files`
-- `POST /copies`
-- `GET /copies` (option: `?exam_id=...`)
-- `GET /copies/{copy_id}`
-- `POST /copies/{copy_id}/process` (option: `?force=true`)
-- `GET /copies/{copy_id}/pages`
-- `GET /pages/{page_id}/image?type=original|processed`
-- `GET /copies/{copy_id}/status`
-- `GET /copies/{copy_id}/correction` (MVP: vide)
-
-## Stockage
-
-- Sur le serveur: `/opt/math-correction/storage`
-- Dans les containers: `/app/storage` (via bind mount)
-- Les chemins stockés en DB sont **relatifs** (ex: `copies/<id>/original.pdf`, `pages/<page_id>/processed.png`)
-
-## Sécurité minimale
-
-- Les ports hôte PostgreSQL/Redis ne sont **pas exposés** (réseau Docker uniquement).
-- En production, seul Caddy expose les ports `80` et `443`. Le backend n'est jamais exposé directement.
-- Caddy injecte le header `Authorization: Bearer {$ADMIN_API_TOKEN}` vers le backend — le navigateur ne voit jamais ce token.
-- Ne jamais committer `.env` (uniquement `.env.example`).
-- `NEXT_PUBLIC_ADMIN_API_TOKEN` est **supprimé** ; toute réintroduction est une faille de sécurité.
-
-## Dépannage
-
-- Logs: `docker compose logs -f backend` / `docker compose logs -f worker`
-- Rebuild: `docker compose up -d --build`
-- Migration DB: exécutée au démarrage backend (`alembic upgrade head`)
-- Permissions storage: s’assurer que `/opt/math-correction/storage` est accessible au process Docker (bind mount)
+Projet prive.
