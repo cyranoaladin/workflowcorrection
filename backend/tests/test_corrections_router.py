@@ -137,6 +137,57 @@ class TestRubricJson:
         data = r2.json()
         assert data["rubric_json"]["questions"][0]["id"] == "Q1"
         assert len(data["rubric_json"]["questions"]) == 2
+        assert data["embedding_status"] == "idle"
+
+    @patch("app.workers.embed_tasks.embed_exam_task.delay")
+    def test_auto_embed_triggers_when_correction_and_rubric_present(
+        self,
+        mock_delay,
+        client,
+        cleanup_ids,
+        unique_title,
+    ):
+        r = client.post("/exams", json={"title": unique_title})
+        assert r.status_code == 200
+        exam_id = r.json()["id"]
+        cleanup_ids["exam_ids"].append(UUID(exam_id))
+
+        pdf = _make_pdf_bytes()
+        files = {"correction_pdf": ("correction.pdf", pdf, "application/pdf")}
+        uploaded = client.post(f"/exams/{exam_id}/files", files=files)
+        assert uploaded.status_code == 200
+        assert uploaded.json()["embedding_status"] == "idle"
+        mock_delay.assert_not_called()
+
+        r2 = client.post(f"/exams/{exam_id}/rubric-json", json=RUBRIC)
+        assert r2.status_code == 200
+        assert r2.json()["embedding_status"] == "queued"
+        mock_delay.assert_called_once_with(exam_id, force=False)
+
+    @patch("app.workers.embed_tasks.embed_exam_task.delay")
+    def test_auto_embed_triggers_when_rubric_exists_and_correction_uploaded(
+        self,
+        mock_delay,
+        client,
+        cleanup_ids,
+        unique_title,
+    ):
+        r = client.post("/exams", json={"title": unique_title})
+        assert r.status_code == 200
+        exam_id = r.json()["id"]
+        cleanup_ids["exam_ids"].append(UUID(exam_id))
+
+        r2 = client.post(f"/exams/{exam_id}/rubric-json", json=RUBRIC)
+        assert r2.status_code == 200
+        assert r2.json()["embedding_status"] == "idle"
+        mock_delay.assert_not_called()
+
+        pdf = _make_pdf_bytes()
+        files = {"correction_pdf": ("correction.pdf", pdf, "application/pdf")}
+        uploaded = client.post(f"/exams/{exam_id}/files", files=files)
+        assert uploaded.status_code == 200
+        assert uploaded.json()["embedding_status"] == "queued"
+        mock_delay.assert_called_once_with(exam_id, force=False)
 
     def test_rejects_empty_questions(self, client, cleanup_ids, unique_title):
         r = client.post("/exams", json={"title": unique_title})
