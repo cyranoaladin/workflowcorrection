@@ -96,9 +96,7 @@ class TestAuditFlagsMissingGrade:
 
     def test_missing_grade(self):
         corrections = [_make_correction("Q1")]
-        result = audit_correction(
-            corrections, total_points=20, rubric_questions=RUBRIC_Q1_Q2_Q3
-        )
+        result = audit_correction(corrections, total_points=20, rubric_questions=RUBRIC_Q1_Q2_Q3)
 
         missing_flags = [f for f in result["flags"] if "missing_grade" in f]
         assert len(missing_flags) == 2  # Q2 and Q3 missing
@@ -112,9 +110,7 @@ class TestAuditFlagsMissingGrade:
             _make_correction("Q2", points_max=6, points_awarded=5),
             _make_correction("Q3", points_max=10, points_awarded=8),
         ]
-        result = audit_correction(
-            corrections, total_points=20, rubric_questions=RUBRIC_Q1_Q2_Q3
-        )
+        result = audit_correction(corrections, total_points=20, rubric_questions=RUBRIC_Q1_Q2_Q3)
 
         assert not any("missing_grade" in f for f in result["flags"])
 
@@ -156,9 +152,7 @@ class TestAuditLLMFallback:
 
     @patch("app.services.audit_service.OpenAI")
     def test_llm_failure_returns_rule_based(self, mock_openai_cls):
-        mock_openai_cls.return_value.chat.completions.create.side_effect = Exception(
-            "API timeout"
-        )
+        mock_openai_cls.return_value.chat.completions.create.side_effect = Exception("API timeout")
         corrections = [
             _make_correction("Q1", confidence=0.3),
         ]
