@@ -5,13 +5,15 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   ChevronLeft, BarChart2, FileText, Users, Brain,
-  CheckCircle2, AlertCircle, Loader2, Save, Code2
+  CheckCircle2, AlertCircle, Loader2, Save, Code2,
+  Database, RefreshCw, Layers3
 } from "lucide-react";
-import { apiGet, apiPostForm, apiPostJson } from "@/lib/api";
-import type { Exam, StudentCopy } from "@/lib/types";
+import { apiGet, apiPost, apiPostForm, apiPostJson } from "@/lib/api";
+import type { EmbedResponse, Exam, KnowledgeListResponse, StudentCopy } from "@/lib/types";
 import { CopyCard } from "@/components/CopyCard";
 import { FileUpload } from "@/components/FileUpload";
 import { StudentCsvUpload } from "@/components/StudentCsvUpload";
+import { StatusBadge } from "@/components/StatusBadge";
 
 export default function ExamDetailPage() {
   const params = useParams();
@@ -20,11 +22,13 @@ export default function ExamDetailPage() {
 
   const [exam, setExam] = useState<Exam | null>(null);
   const [copies, setCopies] = useState<StudentCopy[]>([]);
+  const [knowledge, setKnowledge] = useState<KnowledgeListResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rubricText, setRubricText] = useState("");
   const [rubricSaving, setRubricSaving] = useState(false);
   const [rubricError, setRubricError] = useState<string | null>(null);
   const [rubricSaved, setRubricSaved] = useState(false);
+  const [reindexing, setReindexing] = useState(false);
 
   async function refresh() {
     const [e, c] = await Promise.all([
@@ -35,16 +39,34 @@ export default function ExamDetailPage() {
     setCopies(c);
   }
 
+  async function refreshKnowledge() {
+    const response = await apiGet<KnowledgeListResponse>(`/exams/${examId}/knowledge`);
+    setKnowledge(response);
+  }
+
   useEffect(() => {
-    refresh().catch((e) => setError(e?.message ?? "Erreur de chargement"));
+    Promise.all([refresh(), refreshKnowledge()]).catch((e) => setError(e?.message ?? "Erreur de chargement"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [examId]);
+
+  useEffect(() => {
+    if (exam?.embedding_status !== "queued") return;
+
+    let ticks = 0;
+    const timer = window.setInterval(() => {
+      ticks += 1;
+      Promise.all([refresh(), refreshKnowledge()]).catch((e) => setError(e?.message ?? "Erreur de chargement"));
+      if (ticks >= 12) window.clearInterval(timer);
+    }, 5000);
+    return () => window.clearInterval(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exam?.embedding_status, examId]);
 
   async function uploadExamFile(kind: "subject_pdf" | "correction_pdf" | "rubric_pdf", file: File) {
     const form = new FormData();
     form.set(kind, file);
     await apiPostForm<Exam>(`/exams/${examId}/files`, form);
-    await refresh();
+    await Promise.all([refresh(), refreshKnowledge()]);
   }
 
   async function uploadCopy(file: File) {
@@ -66,10 +88,25 @@ export default function ExamDetailPage() {
       setRubricText("");
       setTimeout(() => setRubricSaved(false), 3000);
       await refresh();
+      await refreshKnowledge();
     } catch (e: any) {
       setRubricError(e?.message ?? "JSON invalide ou erreur serveur");
     } finally {
       setRubricSaving(false);
+    }
+  }
+
+  async function reindexKnowledge() {
+    if (!window.confirm("Relancer l’indexation RAG pour cet examen ?")) return;
+    setReindexing(true);
+    setError(null);
+    try {
+      await apiPost<EmbedResponse>(`/exams/${examId}/embed?force=true`);
+      await Promise.all([refresh(), refreshKnowledge()]);
+    } catch (e: any) {
+      setError(e?.message ?? "Ré-indexation impossible");
+    } finally {
+      setReindexing(false);
     }
   }
 
@@ -156,6 +193,14 @@ export default function ExamDetailPage() {
           <FileUpload label="Barème (PDF)" accept="application/pdf" onUpload={(f) => uploadExamFile("rubric_pdf", f)} />
         </div>
       </div>
+
+      {/* Section: RAG */}
+      <RagStatusPanel
+        exam={exam}
+        knowledge={knowledge}
+        reindexing={reindexing}
+        onReindex={reindexKnowledge}
+      />
 
       {/* Section: Copies */}
       <div>
@@ -245,3 +290,76 @@ export default function ExamDetailPage() {
   );
 }
 
+function RagStatusPanel({
+  exam,
+  knowledge,
+  reindexing,
+  onReindex,
+}: {
+  exam: Exam;
+  knowledge: KnowledgeListResponse | null;
+  reindexing: boolean;
+  onReindex: () => void;
+}) {
+  const documents = knowledge?.documents ?? [];
+  const totalChunks = knowledge?.total_chunks ?? exam.embedded_chunks_count ?? 0;
+  const canReindex = !!exam.correction_pdf_path && !!exam.rubric_json && !reindexing;
+
+  return (
+    <div>
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <Database className="h-4 w-4 text-slate-400" /> Base de connaissances RAG
+        </h2>
+        <button
+          type="button"
+          onClick={onReindex}
+          disabled={!canReindex}
+          className="btn-secondary btn-sm"
+        >
+          {reindexing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          Ré-indexer
+        </button>
+      </div>
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-card">
+        <div className="flex flex-wrap items-center gap-3">
+          <StatusBadge status={exam.embedding_status ?? "idle"} />
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            <FileText className="h-3.5 w-3.5" /> {documents.length} document{documents.length !== 1 ? "s" : ""}
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            <Layers3 className="h-3.5 w-3.5" /> {totalChunks} chunk{totalChunks !== 1 ? "s" : ""}
+          </span>
+          {exam.embedded_at && (
+            <span className="text-xs text-slate-400">
+              {new Date(exam.embedded_at).toLocaleString("fr-FR")}
+            </span>
+          )}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-lg border border-slate-100">
+          {documents.length === 0 ? (
+            <div className="px-3 py-4 text-sm text-slate-400">Aucun document indexé</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {documents.map((doc) => (
+                <div key={doc.id} className="grid gap-2 px-3 py-3 text-sm sm:grid-cols-[120px_1fr_auto] sm:items-center">
+                  <span className="w-fit rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                    {doc.kind}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-700">{doc.title || doc.source_path}</p>
+                    <p className="truncate text-xs text-slate-400">{doc.source_path}</p>
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500">
+                    {doc.chunks_count} chunk{doc.chunks_count !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

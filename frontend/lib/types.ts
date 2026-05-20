@@ -1,3 +1,5 @@
+export type EmbeddingStatus = "idle" | "queued" | "embedded" | "failed" | null;
+
 export type Exam = {
   id: string;
   title: string;
@@ -8,8 +10,35 @@ export type Exam = {
   rubric_pdf_path: string | null;
   rubric_json: Record<string, unknown> | null;
   total_points: string;
+  embedding_status: EmbeddingStatus;
+  embedded_chunks_count: number | null;
+  embedded_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type KnowledgeDocument = {
+  id: string;
+  exam_id: string | null;
+  kind: "correction" | "rubric" | "syllabus" | "user_doc";
+  title: string | null;
+  source_path: string;
+  content_hash: string;
+  chunks_count: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type KnowledgeListResponse = {
+  documents: KnowledgeDocument[];
+  total_chunks: number;
+};
+
+export type EmbedResponse = {
+  status: "queued" | "completed" | "failed" | string;
+  task_id: string | null;
+  chunks_count: number | null;
 };
 
 export type StudentCopy = {
