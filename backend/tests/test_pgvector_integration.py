@@ -32,7 +32,7 @@ def test_pgvector_retrieve_orders_by_cosine_similarity() -> None:
         vectors = [
             ([1.0] + [0.0] * 1535, "best"),
             ([0.8, 0.2] + [0.0] * 1534, "second"),
-            ([0.0, 1.0] + [0.0] * 1534, "third"),
+            ([0.2, 0.8] + [0.0] * 1534, "third"),
             ([-1.0] + [0.0] * 1535, "opposite"),
             ([0.0, -1.0] + [0.0] * 1534, "other"),
         ]
