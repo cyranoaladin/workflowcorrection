@@ -107,11 +107,22 @@ def upload_exam_files(
         storage.save_bytes(rubric_tex.encode("utf-8"), tex_rel)
         exam.rubric_json = {**(exam.rubric_json or {}), "rubric_tex_path": tex_rel}
 
-    should_queue_embedding = _mark_embedding_queued_if_ready(exam)
+    rag_relevant_upload = correction_pdf is not None or rubric_pdf is not None
+    should_queue_embedding = rag_relevant_upload and _mark_embedding_queued_if_ready(exam)
     db.add(exam)
     db.commit()
     if should_queue_embedding:
-        _queue_embedding(exam.id)
+        try:
+            _queue_embedding(exam.id)
+        except Exception:
+            # Broker failure — rollback the queued status so we don't leave a
+            # permanently stale "queued" state.
+            metadata = dict(exam.metadata_json or {})
+            metadata.pop("embedding_status", None)
+            metadata.pop("embedded_queued_at", None)
+            exam.metadata_json = metadata
+            db.add(exam)
+            db.commit()
     db.refresh(exam)
     return exam
 
@@ -206,7 +217,15 @@ def set_rubric_json(
     db.add(exam)
     db.commit()
     if should_queue_embedding:
-        _queue_embedding(exam.id)
+        try:
+            _queue_embedding(exam.id)
+        except Exception:
+            metadata = dict(exam.metadata_json or {})
+            metadata.pop("embedding_status", None)
+            metadata.pop("embedded_queued_at", None)
+            exam.metadata_json = metadata
+            db.add(exam)
+            db.commit()
     db.refresh(exam)
     return exam
 

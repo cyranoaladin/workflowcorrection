@@ -303,7 +303,7 @@ function RagStatusPanel({
 }) {
   const documents = knowledge?.documents ?? [];
   const totalChunks = knowledge?.total_chunks ?? exam.embedded_chunks_count ?? 0;
-  const canReindex = !!exam.correction_pdf_path && !!exam.rubric_json && !reindexing;
+  const canReindex = !!exam.correction_pdf_path && !!exam.rubric_json && !reindexing && exam.embedding_status !== "queued";
 
   return (
     <div>

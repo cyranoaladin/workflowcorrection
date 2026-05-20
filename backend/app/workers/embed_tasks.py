@@ -192,15 +192,27 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
                     )
 
         db.commit()
-        _set_exam_embedding_metadata(db, exam, status="embedded", chunks_count=total_chunks)
 
-        logger.info("Embedded exam %s: %d chunks total", exam_id, total_chunks)
-        return {"status": "completed", "chunks_count": total_chunks, "exam_id": exam_id}
+        # Count actual total chunks in DB (not just this run) to avoid
+        # resetting to 0 on idempotent re-runs where documents are skipped.
+        actual_total = _count_exam_chunks(db, exam.id) if not use_http_rag else total_chunks
+        if actual_total == 0 and total_chunks > 0:
+            actual_total = total_chunks
+        _set_exam_embedding_metadata(db, exam, status="embedded", chunks_count=actual_total)
+
+        logger.info("Embedded exam %s: %d chunks total", exam_id, actual_total)
+        return {"status": "completed", "chunks_count": actual_total, "exam_id": exam_id}
 
     except Exception as exc:
         db.rollback()
         if "exam" in locals() and exam is not None:
-            _set_exam_embedding_metadata(db, exam, status="failed")
+            # Only mark as "failed" when all retries are exhausted;
+            # otherwise the UI would show a failure while a retry is pending.
+            if self.request.retries >= self.max_retries:
+                try:
+                    _set_exam_embedding_metadata(db, exam, status="failed")
+                except Exception:
+                    logger.warning("Could not set failed status for exam %s", exam_id)
         logger.exception("Error embedding exam %s: %s", exam_id, exc)
         raise self.retry(exc=exc) from exc
     finally:
@@ -234,6 +246,19 @@ def _set_exam_embedding_metadata(
     exam.metadata_json = metadata
     db.add(exam)
     db.commit()
+
+
+def _count_exam_chunks(db: Session, exam_id: uuid.UUID) -> int:
+    """Count total knowledge chunks stored in DB for this exam."""
+    from sqlalchemy import func
+
+    result = (
+        db.query(func.count(KnowledgeChunk.id))
+        .join(KnowledgeDocument)
+        .filter(KnowledgeDocument.exam_id == exam_id)
+        .scalar()
+    )
+    return result or 0
 
 
 def _doc_exists(db: Session, *, exam_id: uuid.UUID, content_hash: str) -> bool:

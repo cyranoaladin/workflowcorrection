@@ -68,11 +68,23 @@ def embed_exam(
 
     from app.workers.embed_tasks import embed_exam_task
 
-    task = embed_exam_task.apply_async(
-        args=[str(exam_id)],
-        kwargs={"force": force},
-        task_id=_new_embed_task_id(exam_id),
-    )
+    try:
+        task = embed_exam_task.apply_async(
+            args=[str(exam_id)],
+            kwargs={"force": force},
+            task_id=_new_embed_task_id(exam_id),
+        )
+    except Exception:
+        # Broker failure — rollback the queued status
+        metadata.pop("embedding_status", None)
+        metadata.pop("embedded_queued_at", None)
+        exam.metadata_json = metadata
+        db.add(exam)
+        db.commit()
+        raise HTTPException(
+            status_code=503,
+            detail="Failed to enqueue embedding task. Please try again later.",
+        )
     return _build_embed_response(task)
 
 
