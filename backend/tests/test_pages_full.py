@@ -12,10 +12,9 @@ from fastapi.testclient import TestClient
 @pytest.fixture
 def exam_with_copy(client: TestClient, cleanup_ids: dict) -> tuple[str, str]:
     """Create an exam and upload a 1-page PDF copy."""
-    exam_id = str(uuid.uuid4())
     r = client.post(
         "/exams",
-        data={"title": "BatchTest", "level": "Test", "session": "2026"},
+        json={"title": "BatchTest", "level": "Test", "session": "2026"},
     )
     assert r.status_code == 200
     exam_id = r.json()["id"]

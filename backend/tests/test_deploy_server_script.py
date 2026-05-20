@@ -17,4 +17,4 @@ def test_deploy_server_runs_alembic_upgrade_before_health_checks() -> None:
     content = script.read_text(encoding="utf-8")
 
     assert "alembic upgrade head" in content
-    assert content.index("alembic upgrade head") < content.index("Tests de santé")
+    assert content.index("alembic upgrade head") < content.index("Tests de sante")
