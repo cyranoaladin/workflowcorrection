@@ -84,6 +84,9 @@ class LocalStorage:
         full = self._safe_join(relative_path)
         return full.open(mode)
 
+    def read(self, relative_path: str) -> bytes:
+        return self._safe_join(relative_path).read_bytes()
+
     def exists(self, relative_path: str) -> bool:
         return self._safe_join(relative_path).exists()
 
