@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, UploadFile
@@ -106,8 +107,11 @@ def upload_exam_files(
         storage.save_bytes(rubric_tex.encode("utf-8"), tex_rel)
         exam.rubric_json = {**(exam.rubric_json or {}), "rubric_tex_path": tex_rel}
 
+    should_queue_embedding = _mark_embedding_queued_if_ready(exam)
     db.add(exam)
     db.commit()
+    if should_queue_embedding:
+        _queue_embedding(exam.id)
     db.refresh(exam)
     return exam
 
@@ -198,10 +202,30 @@ def set_rubric_json(
             )
 
     exam.rubric_json = rubric
+    should_queue_embedding = _mark_embedding_queued_if_ready(exam)
     db.add(exam)
     db.commit()
+    if should_queue_embedding:
+        _queue_embedding(exam.id)
     db.refresh(exam)
     return exam
+
+
+def _mark_embedding_queued_if_ready(exam: Exam) -> bool:
+    if not (exam.correction_pdf_path and exam.rubric_json):
+        return False
+
+    metadata = dict(exam.metadata_json or {})
+    metadata["embedding_status"] = "queued"
+    metadata["embedded_queued_at"] = datetime.now(UTC).isoformat()
+    exam.metadata_json = metadata
+    return True
+
+
+def _queue_embedding(exam_id: UUID) -> None:
+    from app.workers.embed_tasks import embed_exam_task
+
+    embed_exam_task.delay(str(exam_id), force=False)
 
 
 @router.post("/{exam_id}/students/csv")

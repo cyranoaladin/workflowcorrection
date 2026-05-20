@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -31,6 +32,9 @@ class KnowledgeDocumentRead(BaseModel):
     content_hash: str
     title: str | None
     chunks_count: int
+    metadata: dict
+    created_at: str
+    updated_at: str
 
     class Config:
         from_attributes = True
@@ -54,6 +58,13 @@ def embed_exam(
     exam = db.get(Exam, exam_id)
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
+
+    metadata = dict(exam.metadata_json or {})
+    metadata["embedding_status"] = "queued"
+    metadata["embedded_queued_at"] = datetime.now(UTC).isoformat()
+    exam.metadata_json = metadata
+    db.add(exam)
+    db.commit()
 
     from app.workers.embed_tasks import embed_exam_task
 
@@ -105,7 +116,8 @@ def list_knowledge(exam_id: UUID, db: Session = Depends(get_db)) -> KnowledgeLis
     documents: list[KnowledgeDocumentRead] = []
     total_chunks = 0
     for doc, chunk_count in docs_with_count:
-        total_chunks += chunk_count
+        effective_chunks_count = chunk_count or int((doc.metadata_ or {}).get("chunks_count", 0) or 0)
+        total_chunks += effective_chunks_count
         documents.append(
             KnowledgeDocumentRead(
                 id=doc.id,
@@ -114,7 +126,10 @@ def list_knowledge(exam_id: UUID, db: Session = Depends(get_db)) -> KnowledgeLis
                 source_path=doc.source_path,
                 content_hash=doc.content_hash,
                 title=doc.title,
-                chunks_count=chunk_count,
+                chunks_count=effective_chunks_count,
+                metadata=doc.metadata_ or {},
+                created_at=doc.created_at.isoformat(),
+                updated_at=doc.updated_at.isoformat(),
             )
         )
 
