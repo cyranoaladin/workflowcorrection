@@ -113,14 +113,21 @@ class HttpRagProvider:
             "title": title or source_path,
             **{key: str(value) for key, value in merged_metadata.items() if value is not None},
         }
-        filename = f"{source_path.replace('/', '_')}.md" if source_path else "document.md"
+        safe_name = source_path.replace("/", "_") if source_path else "document"
+        if not safe_name.endswith(".md"):
+            safe_name += ".md"
         response = self._request(
             "POST",
             "/ingest/upload-files",
-            files=[("files", (filename, text.encode("utf-8"), "text/markdown"))],
+            files=[("files", (safe_name, text.encode("utf-8"), "text/markdown"))],
             params={"metadata": json.dumps(hints), "mode": "text"},
         )
-        return response.json()
+        payload = response.json()
+        # Normalize upload-files response to match downstream expectations
+        if "total_added" in payload and "chunks_count" not in payload:
+            payload["chunks_count"] = payload["total_added"]
+        payload.setdefault("collection", self._collection)
+        return payload
 
     def _request(self, method: str, path: str, *, retries: int = 3, **kwargs: Any) -> httpx.Response:
         url = f"{self._base_url}{path}"
