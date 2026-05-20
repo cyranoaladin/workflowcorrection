@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import pytest
+
 from app.services.rag.http_provider import HttpRagProvider, RagAuthError
 
 

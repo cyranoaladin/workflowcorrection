@@ -60,7 +60,7 @@ def upload_exam_files(
         try:
             validate_pdf_upload(subject_pdf)
         except UploadValidationError as e:
-            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message}) from e
         try:
             stored = storage.save_upload(
                 subject_pdf,
@@ -68,14 +68,14 @@ def upload_exam_files(
                 max_bytes=settings.max_upload_bytes,
             )
         except StorageError as e:
-            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)}) from e
         exam.subject_pdf_path = stored.relative_path
 
     if correction_pdf is not None:
         try:
             validate_pdf_upload(correction_pdf)
         except UploadValidationError as e:
-            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message}) from e
         try:
             stored = storage.save_upload(
                 correction_pdf,
@@ -83,14 +83,14 @@ def upload_exam_files(
                 max_bytes=settings.max_upload_bytes,
             )
         except StorageError as e:
-            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)}) from e
         exam.correction_pdf_path = stored.relative_path
 
     if rubric_pdf is not None:
         try:
             validate_pdf_upload(rubric_pdf)
         except UploadValidationError as e:
-            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+            raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message}) from e
         try:
             stored = storage.save_upload(
                 rubric_pdf,
@@ -98,7 +98,7 @@ def upload_exam_files(
                 max_bytes=settings.max_upload_bytes,
             )
         except StorageError as e:
-            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+            raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)}) from e
         exam.rubric_pdf_path = stored.relative_path
 
     if rubric_tex is not None and rubric_tex.strip():
@@ -245,14 +245,14 @@ def import_students_csv(
     except UnicodeDecodeError:
         try:
             text = raw.decode("latin-1")
-        except UnicodeDecodeError:
+        except UnicodeDecodeError as exc:
             raise HTTPException(
                 status_code=422,
                 detail={
                     "error": "encoding_error",
                     "message": "Cannot decode CSV file. Use UTF-8 or Latin-1 encoding.",
                 },
-            )
+            ) from exc
 
     reader = csv.DictReader(io.StringIO(text))
 

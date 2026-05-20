@@ -257,8 +257,8 @@ def validate_correction(
     if points_awarded is not None:
         try:
             parsed_points = float(points_awarded)
-        except (ValueError, TypeError):
-            raise HTTPException(status_code=400, detail="points_awarded must be a number")
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(status_code=400, detail="points_awarded must be a number") from exc
 
         if parsed_points < 0:
             raise HTTPException(

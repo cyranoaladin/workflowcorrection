@@ -9,6 +9,7 @@ Create Date: 2026-05-07
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "0002_transcriptions_ocr_fields"

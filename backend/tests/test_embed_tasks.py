@@ -4,12 +4,13 @@ import uuid
 from unittest.mock import patch
 
 import pytest
+from sqlalchemy.orm import Session
+
 from app.core.database import SessionLocal
 from app.models.exam import Exam
 from app.models.knowledge import KnowledgeChunk, KnowledgeDocument
 from app.services.chunking_service import Chunk
 from app.workers.embed_tasks import _doc_exists, _persist_chunks
-from sqlalchemy.orm import Session
 
 
 @pytest.fixture

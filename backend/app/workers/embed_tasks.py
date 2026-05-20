@@ -109,7 +109,7 @@ def embed_exam_task(self, exam_id: str, force: bool = False) -> dict:
     except Exception as exc:
         db.rollback()
         logger.exception("Error embedding exam %s: %s", exam_id, exc)
-        raise self.retry(exc=exc)
+        raise self.retry(exc=exc) from exc
     finally:
         db.close()
 

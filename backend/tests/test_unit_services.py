@@ -4,6 +4,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+
 from app.core.storage import LocalStorage, StorageError
 from app.services.image_preprocess_service import preprocess_image
 

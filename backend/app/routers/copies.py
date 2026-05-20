@@ -45,14 +45,14 @@ def upload_copy(
     try:
         validate_pdf_upload(file)
     except UploadValidationError as e:
-        raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message})
+        raise HTTPException(status_code=415, detail={"error": e.code, "message": e.message}) from e
 
     copy_id = uuid.uuid4()
     pdf_rel = f"copies/{copy_id}/original.pdf"
     try:
         stored = storage.save_upload(file, pdf_rel, max_bytes=settings.max_upload_bytes)
     except StorageError as e:
-        raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)})
+        raise HTTPException(status_code=413, detail={"error": "upload_error", "message": str(e)}) from e
 
     copy = StudentCopy(
         id=copy_id,
