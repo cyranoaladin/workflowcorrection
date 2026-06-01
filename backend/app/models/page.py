@@ -28,8 +28,7 @@ class CopyPage(Base):
     copy: Mapped[StudentCopy] = relationship(back_populates="pages")
     transcriptions: Mapped[list[Transcription]] = relationship(
         back_populates="page",
-        cascade="all, delete-orphan",
-        order_by="Transcription.created_at.desc()",
+        cascade="save-update, merge",
     )
 
 

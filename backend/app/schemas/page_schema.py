@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.transcription_schema import TranscriptionRead
 
@@ -25,4 +25,4 @@ class PageFullRead(PageRead):
     """Page with its transcriptions pre-loaded (batch endpoint)."""
 
     has_processed: bool = False
-    transcriptions: list[TranscriptionRead] = []
+    transcriptions: list[TranscriptionRead] = Field(default_factory=list)

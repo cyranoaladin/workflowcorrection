@@ -58,8 +58,13 @@ docker compose -f "$COMPOSE_FILE" up -d --no-deps backend worker frontend
 echo "=== [8/11] Deploiement config Nginx depuis le repo ==="
 if [ -f "$PROJECT_DIR/nginx/maths.labomaths.tn.conf" ]; then
   # Substitute the admin token placeholder
-  ADMIN_TOKEN=$(grep "^ADMIN_API_TOKEN=" "$PROJECT_DIR/.env" | cut -d= -f2 | tr -d "\"'")
-  sed "s/%%ADMIN_API_TOKEN%%/$ADMIN_TOKEN/g" \
+  ADMIN_TOKEN=$(grep "^ADMIN_API_TOKEN=" "$PROJECT_DIR/.env" | cut -d= -f2- | tr -d "\"'")
+  if [ -z "$ADMIN_TOKEN" ]; then
+    echo "  FAIL ADMIN_API_TOKEN not found in .env"
+    exit 1
+  fi
+  ESCAPED_TOKEN=$(printf '%s\n' "$ADMIN_TOKEN" | sed 's/[&/\]/\\&/g')
+  sed "s/%%ADMIN_API_TOKEN%%/$ESCAPED_TOKEN/g" \
     "$PROJECT_DIR/nginx/maths.labomaths.tn.conf" \
     > /etc/nginx/sites-enabled/maths.labomaths.tn
   echo "  OK Nginx config deployed from repo"
@@ -77,7 +82,7 @@ for i in $(seq 1 30); do
   if [ "$i" = "30" ]; then
     echo "  FAIL Backend pas healthy apres 60s"
     echo "  Logs backend:"
-    docker logs math-correction-backend-1 --tail=20 2>&1 || true
+    docker compose -f "$COMPOSE_FILE" logs --tail=20 backend 2>&1 || true
     exit 1
   fi
   sleep 2

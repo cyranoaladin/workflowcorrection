@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import type { CopyPage, PageFull, Transcription } from "@/lib/types";
 import { apiGet, apiPostJson, getApiBaseUrl, apiFetchBlob } from "@/lib/api";
 
@@ -11,9 +11,12 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
   const [transcriptions, setTranscriptions] = useState<Record<string, Transcription[]>>({});
   const [busy, setBusy] = useState<Record<string, string | null>>({});
   const [error, setError] = useState<Record<string, string | null>>({});
-  const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
 
   const copyId = pages[0]?.copy_id;
+  const processedMap = useMemo(
+    () => new Map(pagesFull.map((pf) => [pf.id, pf.has_processed])),
+    [pagesFull],
+  );
 
   function formatErr(e: any): string {
     if (!e) return "Unknown error";
@@ -25,8 +28,10 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
   // Batch load: 1 request for all pages + transcriptions
   useEffect(() => {
     if (!base || !copyId) return;
+    let cancelled = false;
     apiGet<PageFull[]>(`/copies/${copyId}/pages-full`)
       .then((full) => {
+        if (cancelled) return;
         setPagesFull(full);
         const txMap: Record<string, Transcription[]> = {};
         for (const p of full) {
@@ -35,7 +40,7 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
         setTranscriptions(txMap);
       })
       .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; };
   }, [copyId, base]);
 
   // Refresh a single page's transcriptions (after OCR action)
@@ -81,8 +86,7 @@ export function PageViewer({ pages }: { pages: CopyPage[] }) {
   // Determine effective image type per page (use has_processed from batch)
   const effectiveType = (p: CopyPage) => {
     if (mode === "original") return "original";
-    const full = pagesFull.find((pf) => pf.id === p.id);
-    return full?.has_processed ? "processed" : "original";
+    return processedMap.get(p.id) ? "processed" : "original";
   };
 
   return (
@@ -158,16 +162,21 @@ function PageCard({
   useEffect(() => {
     if (!visible) return;
     let cancelled = false;
+    let currentUrl: string | null = null;
     apiFetchBlob(`/pages/${page.id}/image?type=${imageType}`)
       .then((blob) => {
-        if (!cancelled) setBlobUrl(URL.createObjectURL(blob));
+        currentUrl = URL.createObjectURL(blob);
+        if (!cancelled) {
+          setBlobUrl(currentUrl);
+        } else {
+          URL.revokeObjectURL(currentUrl);
+        }
       })
       .catch(() => {});
     return () => {
       cancelled = true;
-      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      if (currentUrl) URL.revokeObjectURL(currentUrl);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, page.id, imageType]);
 
   return (

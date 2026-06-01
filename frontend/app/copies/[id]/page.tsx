@@ -55,13 +55,6 @@ function mentionColor(mention: string) {
   return "text-rose-700 bg-rose-50";
 }
 
-function confidenceLabel(c: number | null) {
-  if (c === null) return "—";
-  if (c >= 0.8) return `✓ ${Math.round(c * 100)}%`;
-  if (c >= 0.5) return `~ ${Math.round(c * 100)}%`;
-  return `⚠ ${Math.round(c * 100)}%`;
-}
-
 export default function CopyDetailPage() {
   const params = useParams();
   const id = params.id as string;
