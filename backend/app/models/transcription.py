@@ -41,6 +41,8 @@ class Transcription(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     copy: Mapped[StudentCopy] = relationship(back_populates="transcriptions")
+    page: Mapped[CopyPage | None] = relationship(back_populates="transcriptions")
 
 
 from app.models.copy import StudentCopy  # noqa: E402
+from app.models.page import CopyPage  # noqa: E402
