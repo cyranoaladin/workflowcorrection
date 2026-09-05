@@ -1,0 +1,14 @@
+# Patch the verified existing production image without changing unrelated packages or OS layers.
+FROM sha256:bef5549b5aa27355d6622e3799302323dbc89299197809951c3c33e35d0b16fb
+ARG PATCH_SOURCE_SHA
+LABEL org.opencontainers.image.source="https://github.com/cyranoaladin/workflowcorrection" \
+      org.opencontainers.image.revision="${PATCH_SOURCE_SHA}" \
+      org.opencontainers.image.base.name="sha256:bef5549b5aa27355d6622e3799302323dbc89299197809951c3c33e35d0b16fb" \
+      org.nexus.app-source-sha="0f6581ea891fb0587302240ddd15af257c3b5bbe"
+USER root
+COPY wheelhouse /tmp/security-wheels
+COPY security-wheels.lock /tmp/security-wheels.lock
+RUN python -m pip install --no-index --no-deps --require-hashes --find-links=/tmp/security-wheels -r /tmp/security-wheels.lock \
+ && python -m pip check
+COPY requirements.txt constraints.runtime.txt /app/
+USER appuser
