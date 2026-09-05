@@ -1,0 +1,42 @@
+#!/usr/bin/env python3
+"""Durable pinned operational entry. Install with override; never use bare compose."""
+import fcntl,json,os,pathlib,re,subprocess,sys,urllib.request,urllib.error
+ROOT='/opt/math-correction'
+OVERRIDE='/etc/nexus-ops/math-correction-image.json'
+IMAGE='sha256:134edf61c3f97ea0fd4ced7a58c1479c84996649583fa731b3b0c9d7e4b632ef'
+def verify_revision(image,expected_source):
+ assert image['Config']['Labels']['org.opencontainers.image.revision']==expected_source, 'Image/source SHA mismatch'
+def main():
+ assert os.geteuid()==0
+ action=sys.argv[1] if len(sys.argv)>1 else ''
+ assert action in ['ps','images','up'], 'Allowed actions: ps, images, up'
+ if action=='up':
+  assert len(sys.argv)==4 and sys.argv[2]=='--expected-source' and re.fullmatch('[0-9a-f]{40}',sys.argv[3]), 'Explicit source SHA required'
+  expected_source=sys.argv[3]
+ else:assert len(sys.argv)==2
+ p=pathlib.Path(OVERRIDE);assert not p.is_symlink() and p.stat().st_uid==0 and p.stat().st_mode&0o022==0
+ override=json.loads(p.read_text());assert override=={'services':{s:{'image':IMAGE} for s in ['backend','worker']}}
+ lock=open('/run/lock/nexus-operations.lock','a');fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ cmd=['docker','compose','--project-name','math-correction','--project-directory',ROOT,'-f',ROOT+'/docker-compose.labomaths.yml','-f',OVERRIDE]
+ if action=='up':
+  image=json.loads(subprocess.check_output(['docker','image','inspect',IMAGE],stderr=subprocess.DEVNULL))[0]
+  verify_revision(image,expected_source)
+  # The coordinated maintenance procedure must already block new submissions.
+  try:
+   response=urllib.request.urlopen('https://maths.labomaths.tn/correction/api/',timeout=5);status=response.status
+  except urllib.error.HTTPError as e:status=e.code
+  assert status==503,'Coordinated API maintenance required before recreation'
+  sys.path.insert(0,'/opt/nexus-ops/math-correction')
+  from rotate_admin_token import idle,inspect,CONTAINERS,preflight,backup_preflight
+  preflight({s:inspect(n) for s,n in CONTAINERS.items()})
+  backup_preflight()
+  assert not any(idle().values()),'Worker must be idle'
+  cmd+=['up','-d','--no-build','--pull','never','--no-deps','backend','worker']
+ else:cmd+=[action]
+ # Do not print Docker output which might contain environment-derived details.
+ result=subprocess.run(cmd,capture_output=True,text=True,timeout=90)
+ print(json.dumps({'action':action,'returncode':result.returncode,'image':IMAGE}))
+ return result.returncode
+if __name__=='__main__':
+ try:sys.exit(main())
+ except Exception as e:print(json.dumps({'status':'refused','error_type':type(e).__name__}));sys.exit(1)

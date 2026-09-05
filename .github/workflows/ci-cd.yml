@@ -123,5 +123,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /opt/math-correction
-            bash scripts/deploy_server.sh
+            set -eu
+            # Root-owned entry acquires the shared operations lock and refuses
+            # unverified images, busy workers or missing coordinated maintenance.
+            /usr/local/sbin/math-correction-compose up --expected-source '${{ github.sha }}'
